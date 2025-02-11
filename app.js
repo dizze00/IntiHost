@@ -8,6 +8,7 @@ import fs from 'fs/promises';
 import Database from 'better-sqlite3';
 import multer from 'multer';
 import path from 'path';
+import { exec } from 'child_process';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -73,7 +74,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Load users from file
 let users = [];
@@ -419,31 +420,161 @@ app.get('/api/debug/user-status', (req, res) => {
     }
 });
 
+// Store servers in memory (or connect to your database if you have one)
+let servers = [];
+
+// Add these new routes for server management
+app.get('/api/servers', (req, res) => {
+    res.json(servers);
+});
+
+app.post('/api/servers', async (req, res) => {
+    console.log('Received request:', req.body); // Add logging
+    
+    try {
+        const { name, type, port } = req.body;
+        
+        // Validate required fields
+        if (!name || !type || !port) {
+            return res.status(400).json({
+                message: 'Server name, type, and port are required'
+            });
+        }
+
+        // Create new server object
+        const newServer = {
+            id: Date.now().toString(),
+            name,
+            type,
+            port: parseInt(port),
+            status: 'initializing',
+            created: new Date().toISOString()
+        };
+
+        // If it's a Minecraft server, run the Docker command
+        if (type === 'minecraft') {
+            const dockerCommand = `docker run -d --name ${name} -p ${port}:25565 -v /var/lib/docker/volumes/${name}/data -e EULA=TRUE itzg/minecraft-server`;
+
+            try {
+                const { stdout, stderr } = await new Promise((resolve, reject) => {
+                    exec(dockerCommand, (error, stdout, stderr) => {
+                        if (error) reject(error);
+                        else resolve({ stdout, stderr });
+                    });
+                });
+
+                newServer.containerId = stdout.trim();
+                newServer.status = 'running';
+                console.log('Docker container created:', newServer.containerId);
+            } catch (error) {
+                console.error('Docker error:', error);
+                return res.status(500).json({
+                    message: 'Failed to create Minecraft server: ' + error.message
+                });
+            }
+        }
+
+        // Add to servers array
+        servers.push(newServer);
+        console.log('Server created:', newServer);
+
+        // Return success response
+        return res.status(201).json(newServer);
+
+    } catch (error) {
+        console.error('Server creation error:', error);
+        return res.status(500).json({
+            message: 'Internal server error: ' + error.message
+        });
+    }
+});
+
+app.get('/api/servers/stats', (req, res) => {
+    const activeServers = servers.filter(s => s.status === 'running').length;
+    res.json({
+        activeServers,
+        totalServers: servers.length
+    });
+});
+
+// Add route to stop server
+app.post('/api/servers/:id/stop', (req, res) => {
+    try {
+        const server = servers.find(s => s.id === req.params.id);
+        if (!server) {
+            return res.status(404).json({ message: 'Server not found' });
+        }
+
+        if (server.type === 'minecraft' && server.containerId) {
+            exec(`docker stop ${server.name}`, (error) => {
+                if (error) {
+                    console.error('Error stopping Docker container:', error);
+                    return res.status(500).json({
+                        message: 'Failed to stop Minecraft server'
+                    });
+                }
+                server.status = 'stopped';
+                res.json({ message: 'Server stopped successfully' });
+            });
+        } else {
+            server.status = 'stopped';
+            res.json({ message: 'Server stopped successfully' });
+        }
+    } catch (error) {
+        console.error('Error stopping server:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// Add route to start server
+app.post('/api/servers/:id/start', (req, res) => {
+    try {
+        const server = servers.find(s => s.id === req.params.id);
+        if (!server) {
+            return res.status(404).json({ message: 'Server not found' });
+        }
+
+        if (server.type === 'minecraft') {
+            exec(`docker start ${server.name}`, (error) => {
+                if (error) {
+                    console.error('Error starting Docker container:', error);
+                    return res.status(500).json({
+                        message: 'Failed to start Minecraft server'
+                    });
+                }
+                server.status = 'running';
+                res.json({ message: 'Server started successfully' });
+            });
+        } else {
+            server.status = 'running';
+            res.json({ message: 'Server started successfully' });
+        }
+    } catch (error) {
+        console.error('Error starting server:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// Serve index.html for all other routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'servform.html'));
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).send('Something broke!');
+    res.status(500).json({
+        message: 'Something broke!',
+        error: err.message
+    });
 });
 
 // Start server
-const PORT = 3000;
-try {
-    app.listen(PORT, () => {
-        console.log(`Server is running on http://localhost:${PORT}`);
-    }).on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use. Please try these steps:`);
-            console.error('1. Check if another instance of the server is running');
-            console.error('2. Kill any process using port 3000 with:');
-            console.error('   On Windows: netstat -ano | findstr :3000');
-            console.error('   On Mac/Linux: lsof -i :3000');
-        } else {
-            console.error('Server error:', err);
-        }
-    });
-} catch (error) {
-    console.error('Failed to start server:', error);
-}
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log('Server is ready to accept requests');
+});
 
 // Add basic error handling
 process.on('uncaughtException', (err) => {
@@ -459,3 +590,16 @@ process.on('exit', () => db.close());
 process.on('SIGHUP', () => process.exit(128 + 1));
 process.on('SIGINT', () => process.exit(128 + 2));
 process.on('SIGTERM', () => process.exit(128 + 15));
+
+// Add CORS middleware
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
