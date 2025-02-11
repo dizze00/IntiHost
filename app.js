@@ -82,9 +82,59 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+// Signup endpoint
+app.post('/signup', async (req, res) => {
+    console.log('Received signup request:', req.body);
+    
+    const { username, email, password } = req.body;
+    
+    if (!username || !email || !password) {
+        return res.status(400).json({
+            success: false,
+            message: 'All fields are required'
+        });
+    }
+    
+    if (users.some(user => user.username === username)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Username already exists'
+        });
+    }
+    
+    if (users.some(user => user.email === email)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Email already exists'
+        });
+    }
+    
+    const newUser = {
+        username,
+        email,
+        password,
+        isAdmin: false
+    };
+    
+    users.push(newUser);
+    
+    try {
+        await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+        console.log('Updated users list:', users); // Debug log
+        res.json({ success: true, message: 'Account created successfully' });
+    } catch (error) {
+        console.error('Error saving user:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error creating account'
+        });
+    }
+});
+
 // Login endpoint
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     console.log('Login attempt:', req.body);
+    console.log('Current users:', users); // Debug log
     
     const { username, password } = req.body;
     
@@ -97,37 +147,29 @@ app.post('/login', (req, res) => {
     
     // Check admin credentials first
     if (username === 'IntiHostadmin123' && password === 'intipintypoo') {
-        req.session.authenticated = true;
-        req.session.username = username;
-        req.session.isAdmin = true;
         console.log('Admin login successful');
         return res.json({ success: true });
     }
     
-    try {
-        const stmt = db.prepare('SELECT * FROM users WHERE username = ? AND password = ?');
-        const user = stmt.get(username, password);
-        
-        if (user) {
-            req.session.authenticated = true;
-            req.session.username = username;
-            req.session.isAdmin = false; // Regular users are not admins
-            console.log('User login successful:', username);
-            return res.json({ success: true });
-        }
-        
-        console.log('Login failed. No matching user found.');
-        return res.status(401).json({
-            success: false,
-            message: 'Invalid credentials'
-        });
-    } catch (error) {
-        console.error('Database error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Internal server error'
-        });
+    // Reload users before checking
+    await loadUsers();
+    
+    // Check registered users
+    const user = users.find(u => {
+        console.log('Comparing with user:', u.username); // Debug log
+        return u.username === username && u.password === password;
+    });
+    
+    if (user) {
+        console.log('User login successful:', username);
+        return res.json({ success: true });
     }
+    
+    console.log('Login failed. No matching user found.');
+    return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+    });
 });
 
 // Logout endpoint
@@ -220,40 +262,6 @@ app.post('/create-server', async (req, res) => {
     } catch (error) {
         console.error('Error creating server:', error);
         res.status(500).json({ error: 'Failed to create server' });
-    }
-});
-
-// Signup endpoint
-app.post('/signup', (req, res) => {
-    const { username, email, password } = req.body;
-    
-    if (!username || !email || !password) {
-        return res.status(400).json({
-            success: false,
-            message: 'All fields are required'
-        });
-    }
-    
-    try {
-        const stmt = db.prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)');
-        stmt.run(username, email, password);
-        
-        console.log('User created successfully');
-        res.json({ success: true, message: 'Account created successfully' });
-    } catch (error) {
-        console.error('Error creating user:', error);
-        
-        if (error.code === 'SQLITE_CONSTRAINT') {
-            res.status(400).json({
-                success: false,
-                message: 'Username or email already exists'
-            });
-        } else {
-            res.status(500).json({
-                success: false,
-                message: 'Error creating account'
-            });
-        }
     }
 });
 

@@ -132,6 +132,14 @@
         document.getElementById('profileImage').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('profileImagePreview').innerHTML = `
+                        <img src="${e.target.result}" alt="Profile">
+                    `;
+                };
+                reader.readAsDataURL(file);
+
                 const formData = new FormData();
                 formData.append('profileImage', file);
 
@@ -142,16 +150,8 @@
                         body: formData
                     });
 
-                    if (response.ok) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            document.getElementById('profileImagePreview').innerHTML = `
-                                <img src="${e.target.result}" alt="Profile">
-                            `;
-                        };
-                        reader.readAsDataURL(file);
-                    } else {
-                        alert('Failed to upload image');
+                    if (!response.ok) {
+                        throw new Error('Failed to upload image');
                     }
                 } catch (error) {
                     console.error('Error uploading image:', error);
@@ -176,7 +176,7 @@
             }
         }
 
-        // Load user data on page load
+        // Load user data when page loads
         loadUserData();
     </script>
 </body>
