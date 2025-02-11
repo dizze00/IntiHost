@@ -1,0 +1,148 @@
+/* Base Animation Keyframes */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes progressFill {
+    from {
+        width: 0;
+    }
+}
+
+/* Element Animations */
+.sidebar {
+    animation: slideInLeft 0.5s ease-out;
+}
+
+.sidebar-logo {
+    animation: scaleIn 0.5s ease-out;
+}
+
+.sidebar-logo img {
+    transition: transform 0.3s ease;
+}
+
+.sidebar-logo:hover img {
+    transform: rotate(10deg);
+}
+
+.menu-item {
+    animation: slideInLeft 0.3s ease-out;
+    animation-fill-mode: both;
+}
+
+/* Staggered menu animations */
+.menu-item:nth-child(1) { animation-delay: 0.1s; }
+.menu-item:nth-child(2) { animation-delay: 0.2s; }
+.menu-item:nth-child(3) { animation-delay: 0.3s; }
+.menu-item:nth-child(4) { animation-delay: 0.4s; }
+.menu-item:nth-child(5) { animation-delay: 0.5s; }
+.menu-item:nth-child(6) { animation-delay: 0.6s; }
+.menu-item:nth-child(7) { animation-delay: 0.7s; }
+
+.page-header {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.search-bar input {
+    transition: all 0.3s ease;
+}
+
+.search-bar input:focus {
+    transform: scale(1.02);
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.button {
+    transition: all 0.3s ease;
+}
+
+.button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.stat-card {
+    animation: scaleIn 0.5s ease-out;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.server-grid {
+    animation: fadeIn 0.5s ease-out;
+    animation-delay: 0.3s;
+    animation-fill-mode: both;
+}
+
+.server-card {
+    animation: scaleIn 0.5s ease-out;
+    animation-fill-mode: both;
+    transition: all 0.3s ease;
+}
+
+.server-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.progress-fill {
+    animation: progressFill 1s ease-out;
+}
+
+/* Form animations */
+.form-group {
+    animation: fadeIn 0.3s ease-out;
+    animation-fill-mode: both;
+}
+
+.form-group:nth-child(1) { animation-delay: 0.1s; }
+.form-group:nth-child(2) { animation-delay: 0.2s; }
+.form-group:nth-child(3) { animation-delay: 0.3s; }
+.form-group:nth-child(4) { animation-delay: 0.4s; }
+
+/* Modal animations */
+.modal {
+    animation: scaleIn 0.3s ease-out;
+}
+
+/* Table animations */
+.table-row {
+    animation: fadeIn 0.3s ease-out;
+    animation-fill-mode: both;
+}
+
+.table-row:nth-child(odd) { animation-delay: 0.1s; }
+.table-row:nth-child(even) { animation-delay: 0.2s; } 
