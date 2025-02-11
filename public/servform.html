@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IntiHost - Create Server</title>
+    <title>IntiHost - New Server</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -29,95 +29,76 @@
             <div class="page-header">
                 <h1>Create New Server</h1>
             </div>
-
-            <div class="form-container" style="max-width: 500px; margin: 0 auto;">
-                <form id="serverForm">
-                    <div class="form-group">
-                        <label for="serverName">Server Name</label>
-                        <input type="text" id="serverName" name="serverName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="serverType">Server Type</label>
-                        <select id="serverType" name="serverType" required>
-                            <option value="">Select a type...</option>
-                            <option value="VANILLA">Vanilla</option>
-                            <option value="PAPER">Paper</option>
-                            <option value="FORGE">Forge</option>
-                            <option value="FABRIC">Fabric</option>
-                            <option value="SPIGOT">Spigot</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="version">Minecraft Version</label>
-                        <select id="version" name="version" required>
-                            <option value="">Select a version...</option>
-                            <option value="1.20.4">1.20.4 (Latest)</option>
-                            <option value="1.20.2">1.20.2</option>
-                            <option value="1.20.1">1.20.1</option>
-                            <option value="1.19.4">1.19.4</option>
-                            <option value="1.19.2">1.19.2</option>
-                            <option value="1.18.2">1.18.2</option>
-                            <option value="1.17.1">1.17.1</option>
-                            <option value="1.16.5">1.16.5</option>
-                            <option value="1.15.2">1.15.2</option>
-                            <option value="1.14.4">1.14.4</option>
-                            <option value="1.12.2">1.12.2</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="maxPlayers">Max Players</label>
-                        <input type="number" id="maxPlayers" name="maxPlayers" min="1" max="100" value="20" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="serverPort">Server Port</label>
-                        <input type="number" id="serverPort" name="serverPort" min="1024" max="65535" value="25565" required>
-                    </div>
-                    <div class="button-group">
-                        <a href="a_dashboard.html" class="button button-secondary">
-                            <i class="fas fa-arrow-left"></i> Cancel
-                        </a>
-                        <button type="submit" class="button button-primary">
-                            <i class="fas fa-plus"></i> Create Server
-                        </button>
-                    </div>
-                </form>
-            </div>
+            
+            <form class="server-form" onsubmit="handleSubmit(event)">
+                <div class="form-group">
+                    <label for="serverName">Server Name</label>
+                    <input type="text" id="serverName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="serverType">Server Type</label>
+                    <select id="serverType" required>
+                        <option value="minecraft">Minecraft</option>
+                        <option value="web">Web Server</option>
+                        <option value="database">Database</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="ram">RAM (GB)</label>
+                    <input type="number" id="ram" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cpu">CPU Cores</label>
+                    <input type="number" id="cpu" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="storage">Storage (GB)</label>
+                    <input type="number" id="storage" min="10" required>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="button button-primary">Create Server</button>
+                    <a href="a_servers.html" class="button">Cancel</a>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
-        document.getElementById('serverForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+        async function handleSubmit(event) {
+            event.preventDefault();
             
-            try {
-                const formData = {
-                    serverName: document.getElementById('serverName').value,
-                    serverType: document.getElementById('serverType').value,
-                    version: document.getElementById('version').value,
-                    maxPlayers: document.getElementById('maxPlayers').value,
-                    serverPort: document.getElementById('serverPort').value
-                };
+            const serverData = {
+                name: document.getElementById('serverName').value,
+                type: document.getElementById('serverType').value,
+                ram: document.getElementById('ram').value,
+                cpu: document.getElementById('cpu').value,
+                storage: document.getElementById('storage').value
+            };
 
-                const response = await fetch('/create-server', {
+            try {
+                const response = await fetch('/api/servers', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(serverData)
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                if (response.ok) {
+                    window.location.href = 'a_servers.html';
+                } else {
+                    alert('Error creating server');
                 }
-
-                const result = await response.json();
-                alert('Server created successfully!');
-                window.location.href = 'a_dashboard.html';
             } catch (error) {
                 console.error('Error:', error);
-                alert('Failed to create server. Please try again.');
+                alert('Error creating server');
             }
-        });
+        }
     </script>
 </body>
 </html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - Statistics</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>IntiHost</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="a_dashboard.html" class="menu-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="a_servers.html" class="menu-item">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="a_users.html" class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                </a>
+                <a href="a_statistics.html" class="menu-item active">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Statistics</span>
+                </a>
+                <a href="a_backups.html" class="menu-item">
+                    <i class="fas fa-database"></i>
+                    <span>Backups</span>
+                </a>
+                <a href="a_settings.html" class="menu-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="logout.html" class="menu-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1>System Statistics</h1>
+                <div class="date-range">
+                    <select id="timeRange">
+                        <option value="24h">Last 24 Hours</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Statistics Overview -->
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <h3><i class="fas fa-server"></i> Server Uptime</h3>
+                    <h2 id="uptime">Loading...</h2>
+                </div>
+                <div class="stat-card">
+                    <h3><i class="fas fa-microchip"></i> CPU Usage</h3>
+                    <h2 id="cpu-usage">Loading...</h2>
+                </div>
+                <div class="stat-card">
+                    <h3><i class="fas fa-memory"></i> Memory Usage</h3>
+                    <h2 id="memory-usage">Loading...</h2>
+                </div>
+                <div class="stat-card">
+                    <h3><i class="fas fa-network-wired"></i> Network Traffic</h3>
+                    <h2 id="network-traffic">Loading...</h2>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>Resource Usage Over Time</h3>
+                    <canvas id="resourceChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Server Response Times</h3>
+                    <canvas id="responseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html> 

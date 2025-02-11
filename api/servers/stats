@@ -1,0 +1,4 @@
+{
+    "activeServers": number,
+    "totalServers": number
+}

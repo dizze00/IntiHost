@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>IntiHost</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="a_dashboard.html" class="menu-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="a_servers.html" class="menu-item">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="a_users.html" class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                </a>
+                <a href="a_statistics.html" class="menu-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Statistics</span>
+                </a>
+                <a href="a_backups.html" class="menu-item">
+                    <i class="fas fa-database"></i>
+                    <span>Backups</span>
+                </a>
+                <a href="a_settings.html" class="menu-item active">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="logout.html" class="menu-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1>System Settings</h1>
+            </div>
+
+            <!-- Settings Sections -->
+            <div class="settings-container">
+                <!-- General Settings -->
+                <div class="settings-section">
+                    <h2>General Settings</h2>
+                    <form id="general-settings-form" class="settings-form">
+                        <div class="form-group">
+                            <label for="system-name">System Name</label>
+                            <input type="text" id="system-name" name="systemName" value="IntiHost">
+                        </div>
+                        <div class="form-group">
+                            <label for="default-language">Default Language</label>
+                            <select id="default-language" name="defaultLanguage">
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="timezone">Time Zone</label>
+                            <select id="timezone" name="timezone">
+                                <option value="UTC">UTC</option>
+                                <option value="EST">EST</option>
+                                <option value="PST">PST</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="button button-primary">Save General Settings</button>
+                    </form>
+                </div>
+
+                <!-- Security Settings -->
+                <div class="settings-section">
+                    <h2>Security Settings</h2>
+                    <form id="security-settings-form" class="settings-form">
+                        <div class="form-group">
+                            <label for="session-timeout">Session Timeout (minutes)</label>
+                            <input type="number" id="session-timeout" name="sessionTimeout" min="5" value="30">
+                        </div>
+                        <div class="form-group">
+                            <label class="toggle-label">
+                                Two-Factor Authentication
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="2fa-toggle" name="twoFactorAuth">
+                                    <label for="2fa-toggle"></label>
+                                </div>
+                            </label>
+                        </div>
+                        <button type="submit" class="button button-primary">Save Security Settings</button>
+                    </form>
+                </div>
+
+                <!-- Backup Settings -->
+                <div class="settings-section">
+                    <h2>Backup Settings</h2>
+                    <form id="backup-settings-form" class="settings-form">
+                        <div class="form-group">
+                            <label class="toggle-label">
+                                Auto Backup
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="auto-backup-toggle" name="autoBackup">
+                                    <label for="auto-backup-toggle"></label>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="backup-frequency">Backup Frequency</label>
+                            <select id="backup-frequency" name="backupFrequency">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="button button-primary">Save Backup Settings</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to show success message
+        function showSuccessMessage(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast success';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Function to handle form submission
+        async function handleFormSubmit(event, formId) {
+            event.preventDefault();
+            const form = document.getElementById(formId);
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                // Replace with your actual API endpoint
+                const response = await fetch(`/api/settings/${formId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    showSuccessMessage('Settings saved successfully!');
+                } else {
+                    throw new Error('Failed to save settings');
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                alert('Failed to save settings. Please try again.');
+            }
+        }
+
+        // Add event listeners to forms
+        document.getElementById('general-settings-form').addEventListener('submit', (e) => 
+            handleFormSubmit(e, 'general-settings-form'));
+        document.getElementById('security-settings-form').addEventListener('submit', (e) => 
+            handleFormSubmit(e, 'security-settings-form'));
+        document.getElementById('backup-settings-form').addEventListener('submit', (e) => 
+            handleFormSubmit(e, 'backup-settings-form'));
+
+        // Load saved settings when page loads
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+                
+                // Apply settings to form fields
+                document.getElementById('system-name').value = settings.systemName || 'IntiHost';
+                document.getElementById('default-language').value = settings.defaultLanguage || 'en';
+                document.getElementById('timezone').value = settings.timezone || 'UTC';
+                document.getElementById('session-timeout').value = settings.sessionTimeout || 30;
+                document.getElementById('2fa-toggle').checked = settings.twoFactorAuth || false;
+                document.getElementById('auto-backup-toggle').checked = settings.autoBackup || false;
+                document.getElementById('backup-frequency').value = settings.backupFrequency || 'daily';
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        // Load settings when page loads
+        document.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+
+    <style>
+        /* Add these styles to your existing CSS or include them here */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            color: white;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast.success {
+            background-color: var(--success-color);
+        }
+
+        .toggle-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .settings-form {
+            max-width: 600px;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</body>
+</html> 

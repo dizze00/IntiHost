@@ -1,0 +1,96 @@
+// Update the form submission handler  
+document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        currentPassword: document.getElementById('currentPassword').value,
+        newPassword: document.getElementById('newPassword').value || null
+    };
+
+    try {
+        const response = await fetch('http://localhost:3000/api/user/update', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Settings updated successfully!');
+            // Optionally refresh the page or update UI
+            window.location.reload();
+        } else {
+            alert(`Error: ${data.message}`);
+        }
+    } catch (error) {
+        console.error('Error updating settings:', error);
+        alert('Error updating settings. Please try again.');
+    }
+});
+
+// Load user data function
+async function loadUserData() {
+    try {
+        const response = await fetch('http://localhost:3000/api/user/profile', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load user data');
+        }
+
+        const userData = await response.json();
+        
+        // Populate form fields
+        document.getElementById('username').value = userData.username;
+        document.getElementById('email').value = userData.email;
+        
+        // Update profile image if exists
+        if (userData.profileImage) {
+            document.getElementById('profileImage').src = `http://localhost:3000${userData.profileImage}`;
+        }
+    } catch (error) {
+        console.error('Error loading user data:', error);
+    }
+}
+
+// Handle image upload
+document.getElementById('imageUpload').addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        const response = await fetch('http://localhost:3000/api/user/profile-image', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to upload image');
+        }
+
+        const data = await response.json();
+        document.getElementById('profileImage').src = `http://localhost:3000${data.imagePath}`;
+        alert('Profile image updated successfully!');
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        alert('Error uploading image. Please try again.');
+    }
+});
+
+// Call loadUserData when page loads
+document.addEventListener('DOMContentLoaded', loadUserData); 

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - Backups</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>IntiHost</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="a_dashboard.html" class="menu-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="a_servers.html" class="menu-item">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="a_users.html" class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                </a>
+                <a href="a_statistics.html" class="menu-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Statistics</span>
+                </a>
+                <a href="a_backups.html" class="menu-item active">
+                    <i class="fas fa-database"></i>
+                    <span>Backups</span>
+                </a>
+                <a href="a_settings.html" class="menu-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="logout.html" class="menu-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1>Backup Management</h1>
+                <div class="actions">
+                    <button class="button button-primary" onclick="createBackup()">
+                        <i class="fas fa-plus"></i> Create Backup
+                    </button>
+                </div>
+            </div>
+
+            <!-- Backup Statistics -->
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <h3><i class="fas fa-save"></i> Total Backups</h3>
+                    <h2 id="total-backups">Loading...</h2>
+                </div>
+                <div class="stat-card">
+                    <h3><i class="fas fa-hdd"></i> Storage Used</h3>
+                    <h2 id="storage-used">Loading...</h2>
+                </div>
+            </div>
+
+            <!-- Backup List -->
+            <div class="backup-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Backup Name</th>
+                            <th>Date Created</th>
+                            <th>Size</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="backup-table-body">
+                        <!-- Backups will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html> 
