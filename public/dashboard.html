@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - User Dashboard</title>
+    <link rel="stylesheet" href="nstyle.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Account Section -->
+    <div class="account-section">
+        <div class="account-circle" onclick="window.location.href='settings.html'">
+            <i class="fas fa-user"></i>
+        </div>
+    </div>
+
+    <div class="user-container">
+        <!-- Header -->
+        <div class="user-header">
+            <div>
+                <h1>Welcome to IntiHost</h1>
+                <p>Manage your servers</p>
+            </div>
+            <div>
+                <a href="create-server.html" class="button button-primary">
+                    <i class="fas fa-plus"></i> Create New Server
+                </a>
+            </div>
+        </div>
+
+        <!-- User Profile -->
+        <div class="user-profile">
+            <div class="profile-header">
+                <div class="profile-info">
+                    <h2 id="username">Loading...</h2>
+                    <p id="user-email">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server List -->
+        <h2><i class="fas fa-server"></i> Your Servers</h2>
+        <div class="server-list" id="server-list">
+            <!-- Server cards will be dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Add account.js before your existing scripts -->
+    <script src="js/account.js"></script>
+    <script>
+        // Function to fetch and display user's servers
+        async function loadUserServers() {
+            try {
+                const response = await fetch('/api/user/servers', {
+                    credentials: 'include'
+                });
+                const servers = await response.json();
+                
+                const serverList = document.getElementById('server-list');
+                serverList.innerHTML = ''; // Clear existing servers
+                
+                servers.forEach(server => {
+                    const serverCard = `
+                        <div class="server-card">
+                            <h3>${server.name}</h3>
+                            <div class="server-info">
+                                <p><strong>IP:</strong> ${server.ip}</p>
+                                <p><strong>Port:</strong> ${server.port}</p>
+                                <span class="server-status ${server.status === 'online' ? 'status-online' : 'status-offline'}">
+                                    ${server.status.toUpperCase()}
+                                </span>
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <button onclick="controlServer('${server.id}', '${server.status === 'online' ? 'stop' : 'start'}')" 
+                                        class="button ${server.status === 'online' ? 'button-secondary' : 'button-primary'}">
+                                    <i class="fas fa-${server.status === 'online' ? 'stop' : 'play'}"></i>
+                                    ${server.status === 'online' ? 'Stop' : 'Start'}
+                                </button>
+                                <button onclick="deleteServer('${server.id}')" class="button button-secondary">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    serverList.innerHTML += serverCard;
+                });
+                
+                // If no servers, show message
+                if (servers.length === 0) {
+                    serverList.innerHTML = `
+                        <div style="text-align: center; padding: 40px;">
+                            <p>You don't have any servers yet.</p>
+                            <a href="create-server.html" class="button button-primary" style="margin-top: 20px;">
+                                <i class="fas fa-plus"></i> Create Your First Server
+                            </a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading servers:', error);
+            }
+        }
+
+        // Function to control server (start/stop)
+        async function controlServer(serverId, action) {
+            try {
+                const response = await fetch(`/api/server/${serverId}/${action}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    loadUserServers(); // Refresh server list
+                } else {
+                    alert(`Failed to ${action} server`);
+                }
+            } catch (error) {
+                console.error(`Error ${action}ing server:`, error);
+                alert(`Failed to ${action} server`);
+            }
+        }
+
+        // Function to delete server
+        async function deleteServer(serverId) {
+            if (confirm('Are you sure you want to delete this server? This action cannot be undone.')) {
+                try {
+                    const response = await fetch(`/api/server/${serverId}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+                    
+                    if (response.ok) {
+                        loadUserServers(); // Refresh server list
+                    } else {
+                        alert('Failed to delete server');
+                    }
+                } catch (error) {
+                    console.error('Error deleting server:', error);
+                    alert('Failed to delete server');
+                }
+            }
+        }
+
+        // Load servers when page loads
+        loadUserServers();
+
+        // Load user profile
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('/api/user/profile', {
+                    credentials: 'include'
+                });
+                const user = await response.json();
+                
+                document.getElementById('username').textContent = user.username;
+                document.getElementById('user-email').textContent = user.email;
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        loadUserProfile();
+    </script>
+</body>
+</html> 

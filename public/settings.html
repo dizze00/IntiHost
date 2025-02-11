@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - Settings</title>
+    <link rel="stylesheet" href="nstyle.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="user-container">
+        <div class="settings-header">
+            <a href="dashboard.html" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <h1>Account Settings</h1>
+        </div>
+
+        <div class="settings-card">
+            <div class="profile-image-section">
+                <div class="profile-image" id="profileImagePreview">
+                    <i class="fas fa-user"></i>
+                </div>
+                <input type="file" id="profileImage" accept="image/*" style="display: none">
+                <button class="button button-secondary" onclick="document.getElementById('profileImage').click()">
+                    <i class="fas fa-camera"></i> Change Photo
+                </button>
+            </div>
+
+            <form id="settingsForm" class="settings-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="currentPassword">Current Password</label>
+                    <input type="password" id="currentPassword" name="currentPassword">
+                </div>
+
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" name="newPassword">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword">
+                </div>
+
+                <div class="settings-buttons">
+                    <button type="submit" class="button button-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="button button-secondary" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Load user data
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/user/profile', {
+                    credentials: 'include'
+                });
+                const user = await response.json();
+                
+                document.getElementById('username').value = user.username;
+                document.getElementById('email').value = user.email;
+                
+                if (user.profileImage) {
+                    document.getElementById('profileImagePreview').innerHTML = `
+                        <img src="${user.profileImage}" alt="Profile">
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('username', document.getElementById('username').value);
+            formData.append('email', document.getElementById('email').value);
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (newPassword) {
+                if (newPassword !== confirmPassword) {
+                    alert('New passwords do not match');
+                    return;
+                }
+                formData.append('currentPassword', currentPassword);
+                formData.append('newPassword', newPassword);
+            }
+
+            try {
+                const response = await fetch('/api/user/update', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    alert('Settings updated successfully');
+                    window.location.reload();
+                } else {
+                    const error = await response.json();
+                    alert(error.message || 'Failed to update settings');
+                }
+            } catch (error) {
+                console.error('Error updating settings:', error);
+                alert('Failed to update settings');
+            }
+        });
+
+        // Handle profile image upload
+        document.getElementById('profileImage').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('profileImage', file);
+
+                try {
+                    const response = await fetch('/api/user/profile-image', {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            document.getElementById('profileImagePreview').innerHTML = `
+                                <img src="${e.target.result}" alt="Profile">
+                            `;
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        alert('Failed to upload image');
+                    }
+                } catch (error) {
+                    console.error('Error uploading image:', error);
+                    alert('Failed to upload image');
+                }
+            }
+        });
+
+        // Logout function
+        async function logout() {
+            try {
+                const response = await fetch('/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/login.html';
+                }
+            } catch (error) {
+                console.error('Logout failed:', error);
+            }
+        }
+
+        // Load user data on page load
+        loadUserData();
+    </script>
+</body>
+</html> 

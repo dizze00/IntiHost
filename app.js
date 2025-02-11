@@ -5,6 +5,7 @@ import { dirname, join } from 'path';
 import cors from 'cors';
 import session from 'express-session';
 import fs from 'fs/promises';
+import Database from 'better-sqlite3';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +14,18 @@ const __dirname = dirname(__filename);
 // Initialize Express and Docker
 const app = express();
 const docker = new Dockerode();
+const db = new Database('users.db');
+
+// Initialize database
+db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        isAdmin BOOLEAN DEFAULT 0
+    )
+`);
 
 // Add session middleware
 app.use(session({
@@ -50,19 +63,28 @@ async function loadUsers() {
 // Load users on startup
 await loadUsers();
 
-// Authentication middleware
+// Updated Authentication middleware
 const requireAuth = (req, res, next) => {
-    if (req.session.authenticated) {
-        next();
-    } else {
-        res.redirect('/login.html');
+    if (!req.session.authenticated) {
+        return res.redirect('/login.html');
     }
+    next();
+};
+
+// New Admin middleware
+const requireAdmin = (req, res, next) => {
+    if (!req.session.authenticated) {
+        return res.redirect('/login.html');
+    }
+    if (!req.session.isAdmin) {
+        return res.redirect('/dashboard.html');
+    }
+    next();
 };
 
 // Login endpoint
-app.post('/login', async (req, res) => {
+app.post('/login', (req, res) => {
     console.log('Login attempt:', req.body);
-    console.log('Current users:', users); // Debug log
     
     const { username, password } = req.body;
     
@@ -75,29 +97,37 @@ app.post('/login', async (req, res) => {
     
     // Check admin credentials first
     if (username === 'IntiHostadmin123' && password === 'intipintypoo') {
+        req.session.authenticated = true;
+        req.session.username = username;
+        req.session.isAdmin = true;
         console.log('Admin login successful');
         return res.json({ success: true });
     }
     
-    // Reload users before checking
-    await loadUsers();
-    
-    // Check registered users
-    const user = users.find(u => {
-        console.log('Comparing with user:', u.username); // Debug log
-        return u.username === username && u.password === password;
-    });
-    
-    if (user) {
-        console.log('User login successful:', username);
-        return res.json({ success: true });
+    try {
+        const stmt = db.prepare('SELECT * FROM users WHERE username = ? AND password = ?');
+        const user = stmt.get(username, password);
+        
+        if (user) {
+            req.session.authenticated = true;
+            req.session.username = username;
+            req.session.isAdmin = false; // Regular users are not admins
+            console.log('User login successful:', username);
+            return res.json({ success: true });
+        }
+        
+        console.log('Login failed. No matching user found.');
+        return res.status(401).json({
+            success: false,
+            message: 'Invalid credentials'
+        });
+    } catch (error) {
+        console.error('Database error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
     }
-    
-    console.log('Login failed. No matching user found.');
-    return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-    });
 });
 
 // Logout endpoint
@@ -106,17 +136,39 @@ app.post('/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// Protect admin routes
-app.get('/a_dashboard.html', requireAuth, (req, res) => {
+// Protected admin routes using requireAdmin middleware
+app.get('/a_dashboard.html', requireAdmin, (req, res) => {
     res.sendFile(join(__dirname, 'public', 'a_dashboard.html'));
 });
 
-app.get('/a_servers.html', requireAuth, (req, res) => {
+app.get('/a_servers.html', requireAdmin, (req, res) => {
     res.sendFile(join(__dirname, 'public', 'a_servers.html'));
 });
 
-app.get('/servform.html', requireAuth, (req, res) => {
+app.get('/servform.html', requireAdmin, (req, res) => {
     res.sendFile(join(__dirname, 'public', 'servform.html'));
+});
+
+// Protected user routes using requireAuth middleware
+app.get('/dashboard.html', requireAuth, (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'dashboard.html'));
+});
+
+// User profile endpoint
+app.get('/api/user/profile', requireAuth, (req, res) => {
+    try {
+        const stmt = db.prepare('SELECT username, email FROM users WHERE username = ?');
+        const user = stmt.get(req.session.username);
+        
+        if (user) {
+            res.json(user);
+        } else {
+            res.status(404).json({ message: 'User not found' });
+        }
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 // Serve static files from public directory
@@ -172,9 +224,7 @@ app.post('/create-server', async (req, res) => {
 });
 
 // Signup endpoint
-app.post('/signup', async (req, res) => {
-    console.log('Received signup request:', req.body);
-    
+app.post('/signup', (req, res) => {
     const { username, email, password } = req.body;
     
     if (!username || !email || !password) {
@@ -184,39 +234,26 @@ app.post('/signup', async (req, res) => {
         });
     }
     
-    if (users.some(user => user.username === username)) {
-        return res.status(400).json({
-            success: false,
-            message: 'Username already exists'
-        });
-    }
-    
-    if (users.some(user => user.email === email)) {
-        return res.status(400).json({
-            success: false,
-            message: 'Email already exists'
-        });
-    }
-    
-    const newUser = {
-        username,
-        email,
-        password,
-        isAdmin: false
-    };
-    
-    users.push(newUser);
-    
     try {
-        await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
-        console.log('Updated users list:', users); // Debug log
+        const stmt = db.prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)');
+        stmt.run(username, email, password);
+        
+        console.log('User created successfully');
         res.json({ success: true, message: 'Account created successfully' });
     } catch (error) {
-        console.error('Error saving user:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error creating account'
-        });
+        console.error('Error creating user:', error);
+        
+        if (error.code === 'SQLITE_CONSTRAINT') {
+            res.status(400).json({
+                success: false,
+                message: 'Username or email already exists'
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Error creating account'
+            });
+        }
     }
 });
 
@@ -231,3 +268,9 @@ const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// Close database on exit
+process.on('exit', () => db.close());
+process.on('SIGHUP', () => process.exit(128 + 1));
+process.on('SIGINT', () => process.exit(128 + 2));
+process.on('SIGTERM', () => process.exit(128 + 15));
