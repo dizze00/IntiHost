@@ -882,3 +882,81 @@ app.get('/api/status/:name', (req, res) => {
 });
 
 // Keep the getUptime helper function as is
+
+// Update the Docker stats endpoint
+const apiRouter = express.Router();
+
+apiRouter.get('/docker/stats', async (req, res) => {
+    console.log('Stats endpoint hit at:', new Date().toISOString());  // Timestamp debug log
+    
+    // Set proper headers
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    try {
+        // Test response
+        const testStats = {
+            timestamp: new Date().toISOString(),
+            activeContainers: 1,
+            totalContainers: 2,
+            cpuUsage: 5.5,
+            memoryUsage: 1024,
+            networkIO: 512,
+            containers: [
+                {
+                    name: "test-container",
+                    cpu: 5.5,
+                    memory: 1024
+                }
+            ],
+            statusCounts: {
+                running: 1,
+                stopped: 1,
+                other: 0
+            }
+        };
+
+        console.log('Sending response:', JSON.stringify(testStats, null, 2)); // Pretty print debug log
+        return res.status(200).json(testStats);
+        
+    } catch (error) {
+        console.error('Error in /api/docker/stats:', error);
+        return res.status(500).json({
+            error: 'Failed to get Docker statistics',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Add a test endpoint to verify API routing
+apiRouter.get('/test', (req, res) => {
+    res.json({ message: 'API is working', timestamp: new Date().toISOString() });
+});
+
+// Mount the API router BEFORE static files
+app.use('/api', apiRouter);
+
+// Serve static files after API routes
+app.use(express.static('public'));
+
+// Catch-all route handler
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+        res.status(404).json({ error: 'API endpoint not found' });
+    } else {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message
+    });
+});
+
+export default app;
+        

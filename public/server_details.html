@@ -159,6 +159,8 @@
     </div>
 
     <script>
+        'use strict';
+
         const serverUrl = window.location.port === '5500' ? 'http://localhost:3000' : '';
         const urlParams = new URLSearchParams(window.location.search);
         const serverName = urlParams.get('name');
@@ -168,16 +170,38 @@
 
         // Tab switching
         function showTab(tabId) {
-            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            document.querySelector(`button[onclick="showTab('${tabId}')"]`).classList.add('active');
+            // Hide all tab panes
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                if (pane) pane.classList.remove('active');
+            });
+            
+            // Deactivate all tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                if (btn) btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            const selectedPane = document.getElementById(tabId);
+            const selectedButton = document.querySelector(`button[onclick="showTab('${tabId}')"]`);
+            
+            if (selectedPane) selectedPane.classList.add('active');
+            if (selectedButton) selectedButton.classList.add('active');
 
             // Load content based on tab
-            if (tabId === 'console') loadConsole();
-            if (tabId === 'files') loadFiles();
-            if (tabId === 'logs') loadLogs();
-            if (tabId === 'users') loadUsers();
+            switch(tabId) {
+                case 'console':
+                    loadConsole();
+                    break;
+                case 'files':
+                    loadFiles();
+                    break;
+                case 'logs':
+                    loadLogs();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+            }
         }
 
         // Console functions
@@ -187,32 +211,35 @@
                 if (!response.ok) throw new Error('Failed to fetch console output');
                 const data = await response.text();
                 
-                // Clear any existing content
                 const consoleOutput = document.getElementById('consoleOutput');
-                consoleOutput.innerHTML = ''; // Clear the servform content
-                
-                // Add actual console output
-                if (data) {
-                    consoleOutput.innerHTML = formatConsoleOutput(data);
-                } else {
-                    consoleOutput.innerHTML = '<div class="console-line">No console output available</div>';
-                }
-                
+                consoleOutput.innerHTML = data ? formatConsoleOutput(data) : '<div class="console-line">No console output available</div>';
                 scrollToBottom('consoleOutput');
             } catch (error) {
                 console.error('Error:', error);
-                document.getElementById('consoleOutput').innerHTML = `<div class="console-line error">Error: ${error.message}</div>`;
+                document.getElementById('consoleOutput').innerHTML = `<div class="console-line error">${error.message}</div>`;
             }
         }
 
         function formatConsoleOutput(text) {
+            if (typeof text !== 'string') return '';
             return text.split('\n')
-                .map(line => `<div class="console-line">${line}</div>`)
+                .map(line => `<div class="console-line">${escapeHtml(line)}</div>`)
                 .join('');
         }
 
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         async function sendCommand() {
-            const command = document.getElementById('commandInput').value;
+            const commandInput = document.getElementById('commandInput');
+            const command = commandInput.value;
             if (!command.trim()) return;
 
             try {
@@ -222,10 +249,13 @@
                     body: JSON.stringify({ command })
                 });
 
-                if (!response.ok) throw new Error('Failed to send command');
+                if (!response.ok) {
+                    throw new Error('Failed to send command');
+                }
                 
-                document.getElementById('commandInput').value = '';
-                await loadConsole();
+                commandInput.value = ''; // Clear input on success
+                await loadConsole(); // Refresh console output
+                showToast('Command sent successfully', 'success');
             } catch (error) {
                 console.error('Error:', error);
                 showToast(error.message, 'error');
@@ -233,56 +263,129 @@
         }
 
         // File functions
+        function refreshFiles() {
+            loadFiles();
+        }
+
         async function loadFiles() {
             try {
                 const response = await fetch(`${serverUrl}/api/servers/${serverName}/files`);
                 if (!response.ok) throw new Error('Failed to fetch files');
                 const files = await response.json();
                 
-                document.getElementById('fileList').innerHTML = files.map(file => `
+                const fileList = document.getElementById('fileList');
+                if (!fileList) return;
+                
+                fileList.innerHTML = files.length ? files.map(file => `
                     <div class="file-item">
                         <i class="fas fa-${file.type === 'directory' ? 'folder' : 'file'}"></i>
                         <span>${file.name}</span>
                     </div>
-                `).join('');
+                `).join('') : '<div class="empty-state">No files found</div>';
             } catch (error) {
                 console.error('Error:', error);
-                document.getElementById('fileList').innerHTML = `Error: ${error.message}`;
+                const fileList = document.getElementById('fileList');
+                if (fileList) {
+                    fileList.innerHTML = `<div class="error">Failed to load files: ${error.message}</div>`;
+                }
             }
         }
 
         // Log functions
+        function refreshLogs() {
+            loadLogs();
+        }
+
         async function loadLogs() {
             try {
                 const response = await fetch(`${serverUrl}/api/servers/${serverName}/logs`);
                 if (!response.ok) throw new Error('Failed to fetch logs');
                 const logs = await response.text();
-                document.getElementById('logOutput').innerHTML = formatLogs(logs);
+                
+                const logOutput = document.getElementById('logOutput');
+                if (!logOutput) return;
+                
+                logOutput.innerHTML = logs ? formatLogs(logs) : '<div class="empty-state">No logs available</div>';
             } catch (error) {
                 console.error('Error:', error);
-                document.getElementById('logOutput').innerHTML = `Error: ${error.message}`;
+                const logOutput = document.getElementById('logOutput');
+                if (logOutput) {
+                    logOutput.innerHTML = `<div class="error">Failed to load logs: ${error.message}</div>`;
+                }
             }
         }
 
         function formatLogs(text) {
             return text.split('\n')
-                .map(line => `<div class="log-line">${line}</div>`)
+                .map(line => `<div class="log-line">${escapeHtml(line)}</div>`)
                 .join('');
         }
 
         function scrollToBottom(elementId) {
             const element = document.getElementById(elementId);
-            element.scrollTop = element.scrollHeight;
+            if (element) {
+                element.scrollTop = element.scrollHeight;
+            }
         }
 
         // Initial load
         document.addEventListener('DOMContentLoaded', () => {
-            loadConsole();
-        });
+            // Check if we have all required elements
+            const requiredElements = {
+                'serverName': 'Server name display element',
+                'serverStatus': 'Server status badge',
+                'serverStatusBadge': 'Server status indicator',
+                'serverUptime': 'Server uptime display',
+                'consoleOutput': 'Console output container',
+                'commandInput': 'Command input field',
+                'fileList': 'File list container',
+                'logOutput': 'Log output container',
+                'usersList': 'Users list container'
+            };
 
-        // Command input enter key handler
-        document.getElementById('commandInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendCommand();
+            let missingElements = [];
+            for (let [id, description] of Object.entries(requiredElements)) {
+                if (!document.getElementById(id)) {
+                    missingElements.push(`${id} (${description})`);
+                    console.warn(`Missing element: ${id}`);
+                }
+            }
+
+            if (missingElements.length > 0) {
+                console.error('Missing required elements:', missingElements);
+            }
+
+            // Set server name in title
+            const serverNameElement = document.getElementById('serverName');
+            if (serverNameElement) {
+                serverNameElement.textContent = serverName || 'Unknown Server';
+            }
+
+            // Initialize command input handler
+            const commandInput = document.getElementById('commandInput');
+            if (commandInput) {
+                commandInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        sendCommand();
+                    }
+                });
+            }
+
+            // Initialize file upload handler
+            const fileUpload = document.getElementById('fileUpload');
+            if (fileUpload) {
+                fileUpload.addEventListener('change', handleFileUpload);
+            }
+
+            // Start auto-refresh
+            updateServerInfo();
+            const updateInterval = setInterval(updateServerInfo, 5000);
+
+            // Cleanup on page unload
+            window.addEventListener('unload', () => {
+                clearInterval(updateInterval);
+            });
         });
 
         // Update the updateServerInfo function to match the server cards functionality
@@ -294,69 +397,71 @@
                 const containers = await response.json();
                 const container = containers.find(c => c.name === serverName);
                 
-                if (container) {
-                    // Update main status badge
-                    const mainStatus = document.getElementById('serverStatus');
-                    if (mainStatus) {
-                        const simpleStatus = getSimpleStatus(container.status);
-                        mainStatus.textContent = simpleStatus;
-                        mainStatus.className = `status-badge status-${getStatusClass(container.status)}`;
-                    }
-                    
-                    // Update status in server controls
-                    const statusBadge = document.getElementById('serverStatusBadge');
-                    if (statusBadge) {
-                        const simpleStatus = getSimpleStatus(container.status);
-                        statusBadge.textContent = simpleStatus;
-                        statusBadge.className = `status-badge status-${getStatusClass(container.status)}`;
-                    }
-                    
-                    // Update uptime
-                    const uptimeElement = document.getElementById('serverUptime');
-                    if (uptimeElement) {
-                        uptimeElement.textContent = container.status.replace('Up ', '');
-                    }
-                }
+                if (!container) throw new Error('Container not found');
                 
+                updateStatusElements(container);
             } catch (error) {
                 console.error('Error updating server info:', error);
-                
-                // Set error state for status badges
-                ['serverStatus', 'serverStatusBadge'].forEach(id => {
-                    const element = document.getElementById(id);
-                    if (element) {
-                        element.textContent = 'Unknown';
-                        element.className = 'status-badge status-unknown';
-                    }
-                });
-                
-                // Set error state for uptime
-                const uptimeElement = document.getElementById('serverUptime');
-                if (uptimeElement) {
-                    uptimeElement.textContent = 'Unknown';
+                handleUpdateError();
+            }
+        }
+
+        function updateStatusElements(container) {
+            const elements = {
+                mainStatus: document.getElementById('serverStatus'),
+                statusBadge: document.getElementById('serverStatusBadge'),
+                uptime: document.getElementById('serverUptime')
+            };
+
+            if (elements.mainStatus) {
+                const simpleStatus = getSimpleStatus(container.status);
+                elements.mainStatus.textContent = simpleStatus;
+                elements.mainStatus.className = `status-badge status-${getStatusClass(container.status)}`;
+            }
+
+            if (elements.statusBadge) {
+                const simpleStatus = getSimpleStatus(container.status);
+                elements.statusBadge.textContent = simpleStatus;
+                elements.statusBadge.className = `status-badge status-${getStatusClass(container.status)}`;
+            }
+
+            if (elements.uptime) {
+                elements.uptime.textContent = container.status.replace('Up ', '');
+            }
+        }
+
+        function handleUpdateError() {
+            const elements = ['serverStatus', 'serverStatusBadge'].map(id => 
+                document.getElementById(id)
+            );
+
+            elements.forEach(element => {
+                if (element) {
+                    element.textContent = 'Unknown';
+                    element.className = 'status-badge status-unknown';
                 }
+            });
+
+            const uptimeElement = document.getElementById('serverUptime');
+            if (uptimeElement) {
+                uptimeElement.textContent = 'Unknown';
             }
         }
 
         // Add these helper functions from the server cards
         function getStatusClass(status) {
+            if (typeof status !== 'string') return 'unknown';
             if (status.includes('Up')) return 'running';
             if (status.includes('Exited')) return 'stopped';
-            return 'other';
+            return 'unknown';
         }
 
         function getSimpleStatus(status) {
+            if (typeof status !== 'string') return 'Unknown';
             if (status.includes('Up')) return 'Running';
             if (status.includes('Exited')) return 'Stopped';
             return 'Unknown';
         }
-
-        // Auto-refresh server info every 5 seconds
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('Page loaded, initializing server info updates');
-            updateServerInfo(); // Initial call
-            setInterval(updateServerInfo, 5000); // Update every 5 seconds
-        });
 
         // Add this function for toast notifications
         function showToast(message, type = 'info') {
@@ -427,25 +532,28 @@
                             </div>
                             <div class="user-details">
                                 <span class="user-name">${user}</span>
-                                <span class="user-added">Added on ${new Date().toLocaleDateString()}</span>
                             </div>
                         </div>
                         <div class="user-actions">
-                            <button class="remove" onclick="removeUserAccess('${user}')">
-                                <i class="fas fa-trash"></i>
+                            <button onclick="removeUserAccess('${user}')" class="button button-danger">
+                                <i class="fas fa-trash"></i> Remove
                             </button>
                         </div>
                     </div>
                 `).join('');
             } catch (error) {
                 console.error('Error:', error);
-                usersList.innerHTML = '<div class="error">Failed to load users</div>';
+                usersList.innerHTML = `<div class="error">Failed to load users: ${error.message}</div>`;
             }
         }
 
         async function addUserAccess() {
-            const username = document.getElementById('usernameInput').value.trim();
-            if (!username) return;
+            const input = document.getElementById('newUserInput');
+            const username = input.value.trim();
+            if (!username) {
+                showToast('Please enter a username', 'error');
+                return;
+            }
 
             try {
                 const response = await fetch(`${serverUrl}/api/servers/${serverName}/users`, {
@@ -456,8 +564,8 @@
                 
                 if (!response.ok) throw new Error('Failed to add user');
                 
-                document.getElementById('usernameInput').value = '';
-                loadUsers();
+                input.value = ''; // Clear input on success
+                await loadUsers(); // Refresh users list
                 showToast('User access added successfully', 'success');
             } catch (error) {
                 console.error('Error:', error);
@@ -473,8 +581,32 @@
                 
                 if (!response.ok) throw new Error('Failed to remove user');
                 
-                loadUsers();
+                await loadUsers(); // Refresh users list
                 showToast('User access removed successfully', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Add file upload handling
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/files/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Failed to upload file');
+                
+                await loadFiles(); // Refresh file list
+                showToast('File uploaded successfully', 'success');
             } catch (error) {
                 console.error('Error:', error);
                 showToast(error.message, 'error');
@@ -967,6 +1099,66 @@
         const styleSheet = document.createElement("style");
         styleSheet.textContent = toastStyles;
         document.head.appendChild(styleSheet);
+
+        // Add error handling for missing elements
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize all required elements
+            const requiredElements = [
+                'commandInput',
+                'consoleOutput',
+                'newUserInput',
+                'usersList',
+                'serverName',
+                'serverStatus',
+                'serverStatusBadge',
+                'serverUptime'
+            ];
+
+            requiredElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (!element) {
+                    console.warn(`Missing element with id: ${id}`);
+                }
+            });
+
+            // Start the update interval
+            updateServerInfo();
+            setInterval(updateServerInfo, 5000);
+        });
+
+        // Add missing error handling styles
+        const errorStyles = `
+            .error {
+                color: #dc2626;
+                padding: 1rem;
+                background: #fee2e2;
+                border-radius: 8px;
+                margin: 1rem 0;
+            }
+
+            .loading {
+                text-align: center;
+                padding: 1rem;
+                color: #6b7280;
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 2rem;
+                color: #6b7280;
+                background: #f9fafb;
+                border-radius: 8px;
+            }
+
+            .console-line.error {
+                color: #dc2626;
+            }
+        `;
+
+        // Add the error styles to the document
+        const errorStyleSheet = document.createElement("style");
+        errorStyleSheet.textContent = errorStyles;
+        document.head.appendChild(errorStyleSheet);
     </style>
 </body>
 </html> 
