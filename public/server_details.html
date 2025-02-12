@@ -358,11 +358,30 @@
             setInterval(updateServerInfo, 5000); // Update every 5 seconds
         });
 
+        // Add this function for toast notifications
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Update the handleServerAction function to use the correct endpoint
         async function handleServerAction(action) {
             try {
                 console.log('Attempting server action:', action); // Debug log
                 
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/${action}`, {
+                let endpoint;
+                if (action === 'stop') {
+                    endpoint = `${serverUrl}/api/docker/stop/${serverName}`;
+                } else if (action === 'start') {
+                    endpoint = `${serverUrl}/api/docker/start/${serverName}`;
+                } else if (action === 'restart') {
+                    endpoint = `${serverUrl}/api/docker/restart/${serverName}`;
+                }
+
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -905,6 +924,49 @@
         .user-actions button.remove:hover {
             background: #fee2e2;
         }
+
+        // Add toast styling
+        const toastStyles = `
+            .toast {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                animation: slideIn 0.3s ease-out;
+            }
+
+            .toast-success {
+                background-color: #10b981;
+            }
+
+            .toast-error {
+                background-color: #ef4444;
+            }
+
+            .toast-info {
+                background-color: #3b82f6;
+            }
+
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+
+        // Add the styles to the document
+        const styleSheet = document.createElement("style");
+        styleSheet.textContent = toastStyles;
+        document.head.appendChild(styleSheet);
     </style>
 </body>
 </html> 
