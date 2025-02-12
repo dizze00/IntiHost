@@ -36,15 +36,14 @@
                     <i class="fas fa-database"></i>
                     <span>Backups</span>
                 </a>
-                <a href="a_settings.html" class="menu-item">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
                 <a href="login.html" class="menu-item">
                     <i class="fas fa-sign-out-alt"></i>
                     <span>Login</span>
                 </a>
             </div>
+            <audio id="tabSound" preload="auto">
+                <source src="assets/click.mp3" type="audio/mpeg">
+            </audio>
         </div>
 
         <!-- Main Content -->
@@ -114,6 +113,15 @@
                 toast.remove();
             }, 3000);
         }
+
+        // Add click sound to all menu items
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const audio = document.getElementById('tabSound');
+                audio.currentTime = 0; // Reset sound to start
+                audio.play();
+            });
+        });
     </script>
 
     <style>

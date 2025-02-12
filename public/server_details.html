@@ -37,10 +37,6 @@
                     <i class="fas fa-database"></i>
                     <span>Backups</span>
                 </a>
-                <a href="a_settings.html" class="menu-item">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
                 <a href="login.html" class="menu-item">
                     <i class="fas fa-sign-out-alt"></i>
                     <span>Login</span>
@@ -289,33 +285,100 @@
             if (e.key === 'Enter') sendCommand();
         });
 
-        // Add these functions to your existing JavaScript
+        // Update the updateServerInfo function to match the server cards functionality
         async function updateServerInfo() {
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/info`);
-                if (!response.ok) throw new Error('Failed to fetch server info');
-                const data = await response.json();
+                const response = await fetch(`${serverUrl}/api/docker/containers`);
+                if (!response.ok) throw new Error('Failed to fetch containers');
                 
-                // Update status
-                const statusBadge = document.getElementById('serverStatusBadge');
-                statusBadge.textContent = data.status;
-                statusBadge.className = `status-badge ${data.status.toLowerCase()}`;
+                const containers = await response.json();
+                const container = containers.find(c => c.name === serverName);
                 
-                // Update uptime
-                document.getElementById('serverUptime').textContent = data.uptime;
+                if (container) {
+                    // Update main status badge
+                    const mainStatus = document.getElementById('serverStatus');
+                    if (mainStatus) {
+                        const simpleStatus = getSimpleStatus(container.status);
+                        mainStatus.textContent = simpleStatus;
+                        mainStatus.className = `status-badge status-${getStatusClass(container.status)}`;
+                    }
+                    
+                    // Update status in server controls
+                    const statusBadge = document.getElementById('serverStatusBadge');
+                    if (statusBadge) {
+                        const simpleStatus = getSimpleStatus(container.status);
+                        statusBadge.textContent = simpleStatus;
+                        statusBadge.className = `status-badge status-${getStatusClass(container.status)}`;
+                    }
+                    
+                    // Update uptime
+                    const uptimeElement = document.getElementById('serverUptime');
+                    if (uptimeElement) {
+                        uptimeElement.textContent = container.status.replace('Up ', '');
+                    }
+                }
+                
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error updating server info:', error);
+                
+                // Set error state for status badges
+                ['serverStatus', 'serverStatusBadge'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = 'Unknown';
+                        element.className = 'status-badge status-unknown';
+                    }
+                });
+                
+                // Set error state for uptime
+                const uptimeElement = document.getElementById('serverUptime');
+                if (uptimeElement) {
+                    uptimeElement.textContent = 'Unknown';
+                }
             }
         }
 
+        // Add these helper functions from the server cards
+        function getStatusClass(status) {
+            if (status.includes('Up')) return 'running';
+            if (status.includes('Exited')) return 'stopped';
+            return 'other';
+        }
+
+        function getSimpleStatus(status) {
+            if (status.includes('Up')) return 'Running';
+            if (status.includes('Exited')) return 'Stopped';
+            return 'Unknown';
+        }
+
+        // Auto-refresh server info every 5 seconds
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, initializing server info updates');
+            updateServerInfo(); // Initial call
+            setInterval(updateServerInfo, 5000); // Update every 5 seconds
+        });
+
         async function handleServerAction(action) {
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/${action}`, {
-                    method: 'POST'
-                });
-                if (!response.ok) throw new Error(`Failed to ${action} server`);
+                console.log('Attempting server action:', action); // Debug log
                 
-                updateServerInfo();
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('Action response:', response); // Debug log
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('Server error:', errorData); // Debug log
+                    throw new Error(errorData.error || `Failed to ${action} server`);
+                }
+                
+                // Update server status
+                await updateServerInfo();
                 showToast(`Server ${action}ed successfully`, 'success');
             } catch (error) {
                 console.error('Error:', error);
@@ -398,13 +461,6 @@
                 showToast(error.message, 'error');
             }
         }
-
-        // Add to your existing DOMContentLoaded event
-        document.addEventListener('DOMContentLoaded', () => {
-            updateServerInfo();
-            loadUsers();
-            setInterval(updateServerInfo, 5000); // Update every 5 seconds
-        });
     </script>
 
     <style>
@@ -645,21 +701,36 @@
             font-weight: 500;
         }
 
+        /* Status Badge Styling */
         .status-badge {
             padding: 0.25rem 0.75rem;
             border-radius: 9999px;
             font-size: 0.875rem;
             font-weight: 500;
+            display: inline-block;
         }
 
-        .status-badge.running {
+        .status-badge.status-running {
             background: #dcfce7;
             color: #166534;
+            border: 1px solid #16a34a;
         }
 
-        .status-badge.stopped {
+        .status-badge.status-stopped {
             background: #fee2e2;
             color: #991b1b;
+            border: 1px solid #dc2626;
+        }
+
+        .status-badge.status-unknown {
+            background: #f3f4f6;
+            color: #6b7280;
+            border: 1px solid #9ca3af;
+        }
+
+        /* Server Controls Status Badge */
+        .server-info .status-badge {
+            margin-left: 0.5rem;
         }
 
         .control-buttons {

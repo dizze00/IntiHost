@@ -549,33 +549,33 @@ app.post('/api/servers/:id/stop', (req, res) => {
     }
 });
 
-// Add route to start server
-app.post('/api/servers/:id/start', (req, res) => {
-    try {
-        const server = servers.find(s => s.id === req.params.id);
-        if (!server) {
-            return res.status(404).json({ message: 'Server not found' });
+// Server start endpoint
+app.post('/api/servers/:name/start', (req, res) => {
+    const { name } = req.params;
+    
+    exec(`docker start ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error starting server:', error);
+            return res.status(500).json({ error: 'Failed to start server' });
         }
+        res.json({ message: 'Server started successfully' });
+    });
+});
 
-        if (server.type === 'minecraft') {
-            exec(`docker start ${server.name}`, (error) => {
-                if (error) {
-                    console.error('Error starting Docker container:', error);
-                    return res.status(500).json({
-                        message: 'Failed to start Minecraft server'
-                    });
-                }
-                server.status = 'running';
-                res.json({ message: 'Server started successfully' });
-            });
-        } else {
-            server.status = 'running';
-            res.json({ message: 'Server started successfully' });
+// Server stop endpoint
+app.post('/api/servers/:name/stop', (req, res) => {
+    const { name } = req.params;
+    console.log('Received stop request for server:', name); // Debug log
+    
+    exec(`docker stop ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error stopping server:', error);
+            console.error('stderr:', stderr); // Debug log
+            return res.status(500).json({ error: 'Failed to stop server', details: error.message });
         }
-    } catch (error) {
-        console.error('Error starting server:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
+        console.log('Server stopped successfully:', stdout); // Debug log
+        res.json({ message: 'Server stopped successfully' });
+    });
 });
 
 // Serve index.html for all other routes
@@ -737,3 +737,148 @@ app.post('/api/settings/language', (req, res) => {
     
     res.json({ message: 'Language updated successfully' });
 });
+
+// Update Docker action endpoints
+app.post('/api/docker/stop/:name', (req, res) => {
+    const { name } = req.params;
+    console.log('Stopping container:', name); // Debug log
+    
+    exec(`docker stop ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error stopping container:', error);
+            console.error('stderr:', stderr);
+            return res.status(500).json({ error: 'Failed to stop container' });
+        }
+        console.log('Stop output:', stdout); // Debug log
+        res.json({ message: 'Container stopped successfully' });
+    });
+});
+
+app.post('/api/docker/start/:name', (req, res) => {
+    const { name } = req.params;
+    console.log('Starting container:', name); // Debug log
+    
+    exec(`docker start ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error starting container:', error);
+            console.error('stderr:', stderr);
+            return res.status(500).json({ error: 'Failed to start container' });
+        }
+        console.log('Start output:', stdout); // Debug log
+        res.json({ message: 'Container started successfully' });
+    });
+});
+
+app.post('/api/docker/restart/:name', (req, res) => {
+    const { name } = req.params;
+    console.log('Restarting container:', name); // Debug log
+    
+    exec(`docker restart ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error restarting container:', error);
+            console.error('stderr:', stderr);
+            return res.status(500).json({ error: 'Failed to restart container' });
+        }
+        console.log('Restart output:', stdout); // Debug log
+        res.json({ message: 'Container restarted successfully' });
+    });
+});
+
+// Update the container info endpoint
+app.get('/api/containers/:name/info', async (req, res) => {
+    const { name } = req.params;
+    console.log('Fetching info for container:', name);
+    
+    try {
+        const inspectCmd = await new Promise((resolve, reject) => {
+            exec(`docker inspect ${name}`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error('Docker inspect error:', error);
+                    reject(error);
+                    return;
+                }
+                resolve(stdout);
+            });
+        });
+        
+        const containerInfo = JSON.parse(inspectCmd)[0];
+        const state = containerInfo.State;
+        
+        const response = {
+            status: state.Running ? 'running' : 'stopped',
+            uptime: state.Running ? calculateUptime(state.StartedAt) : 'Not running'
+        };
+        
+        console.log('Sending response:', response);
+        res.json(response);
+        
+    } catch (error) {
+        console.error('Error getting container info:', error);
+        res.status(500).json({
+            status: 'unknown',
+            uptime: 'Unknown',
+            error: error.message
+        });
+    }
+});
+
+// Helper function to calculate uptime
+function calculateUptime(startTime) {
+    const started = new Date(startTime);
+    const now = new Date();
+    const uptimeMs = now - started;
+    
+    const seconds = Math.floor(uptimeMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
+}
+
+// Update the status endpoint to always return JSON
+app.get('/api/status/:name', (req, res) => {
+    // Set JSON content type
+    res.setHeader('Content-Type', 'application/json');
+    
+    const { name } = req.params;
+    console.log('Getting status for:', name);
+    
+    exec(`docker inspect ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Docker inspect error:', error);
+            return res.status(500).json({
+                status: 'unknown',
+                uptime: 'Unknown',
+                error: error.message
+            });
+        }
+        
+        try {
+            const data = JSON.parse(stdout)[0];
+            const state = data.State;
+            const running = state.Running;
+            
+            const response = {
+                status: running ? 'running' : 'stopped',
+                uptime: running ? getUptime(state.StartedAt) : 'Not running'
+            };
+            
+            console.log('Sending response:', response);
+            res.json(response);
+            
+        } catch (error) {
+            console.error('Error parsing docker inspect:', error);
+            res.status(500).json({
+                status: 'unknown',
+                uptime: 'Unknown',
+                error: 'Failed to parse container info'
+            });
+        }
+    });
+});
+
+// Keep the getUptime helper function as is

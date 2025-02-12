@@ -36,10 +36,6 @@
                     <i class="fas fa-database"></i>
                     <span>Backups</span>
                 </a>
-                <a href="a_settings.html" class="menu-item">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
                 <a href="login.html" class="menu-item">
                     <i class="fas fa-sign-out-alt"></i>
                     <span>Login</span>
@@ -115,10 +111,15 @@
                             <p><strong>Status:</strong> ${container.status}</p>
                         </div>
                         <div class="container-actions">
-                            <button onclick="handleContainer('${container.name}', '${container.status.includes('Up') ? 'stop' : 'start'}')" 
-                                    class="button ${container.status.includes('Up') ? 'button-warning' : 'button-success'}">
-                                <i class="fas fa-${container.status.includes('Up') ? 'stop' : 'play'}"></i>
-                                ${container.status.includes('Up') ? 'Stop' : 'Start'}
+                            <button onclick="handleContainer('${container.name}', 'start')" 
+                                    class="button button-success">
+                                <i class="fas fa-play"></i>
+                                Start
+                            </button>
+                            <button onclick="handleContainer('${container.name}', 'stop')" 
+                                    class="button button-warning">
+                                <i class="fas fa-stop"></i>
+                                Stop
                             </button>
                             <button onclick="handleContainer('${container.name}', 'restart')" 
                                     class="button button-primary">
@@ -191,17 +192,51 @@
         }
 
         async function handleContainer(name, action) {
+            console.log(`Attempting to ${action} container: ${name}`); // Debug log
+            
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${name}/${action}`, {
-                    method: 'POST'
+                let endpoint;
+                if (action === 'stop') {
+                    endpoint = `${serverUrl}/api/docker/stop/${name}`;
+                } else if (action === 'start') {
+                    endpoint = `${serverUrl}/api/docker/start/${name}`;
+                } else if (action === 'restart') {
+                    endpoint = `${serverUrl}/api/docker/restart/${name}`;
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
+
+                console.log('Response status:', response.status); // Debug log
                 
-                if (!response.ok) throw new Error(`Failed to ${action} container`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('Server error:', errorData); // Debug log
+                    throw new Error(errorData.error || `Failed to ${action} container`);
+                }
                 
                 // Refresh the containers list
                 await loadContainers();
+                
+                // Show success message
+                const toast = document.createElement('div');
+                toast.className = `toast toast-success`;
+                toast.textContent = `Server ${action}ed successfully`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+                
             } catch (error) {
                 console.error('Error:', error);
+                // Show error message
+                const toast = document.createElement('div');
+                toast.className = `toast toast-error`;
+                toast.textContent = error.message;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
             }
         }
 
@@ -211,6 +246,62 @@
 
         // Load containers when page loads
         document.addEventListener('DOMContentLoaded', loadContainers);
+
+        // Update the startServer function
+        async function startServer(serverName, event) {
+            event.stopPropagation(); // Prevent card click event
+            
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/start`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) throw new Error('Failed to start server');
+                
+                // Update the server status
+                const statusElement = event.target.closest('.server-card').querySelector('.server-status');
+                statusElement.textContent = 'Running';
+                statusElement.className = 'server-status status-running';
+                
+                showToast('Server started successfully', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Update the stopServer function with debugging
+        async function stopServer(serverName, event) {
+            event.stopPropagation(); // Prevent card click event
+            console.log('Attempting to stop server:', serverName); // Debug log
+            
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/stop`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('Stop response:', response); // Debug log
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('Server error:', errorData); // Debug log
+                    throw new Error(errorData.error || 'Failed to stop server');
+                }
+                
+                // Update the server status
+                const statusElement = event.target.closest('.server-card').querySelector('.server-status');
+                statusElement.textContent = 'Stopped';
+                statusElement.className = 'server-status status-stopped';
+                
+                showToast('Server stopped successfully', 'success');
+            } catch (error) {
+                console.error('Error stopping server:', error);
+                showToast(error.message, 'error');
+            }
+        }
     </script>
 
     <style>
