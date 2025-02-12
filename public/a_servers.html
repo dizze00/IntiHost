@@ -6,7 +6,8 @@
     <title>IntiHost - Servers</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="animations.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="admin-container">
@@ -68,15 +69,20 @@
         </div>
     </div>
 
+    <!-- Include chat sidebar -->
+    <div id="chatSidebarContainer"></div>
+
     <script>
         // Get the server URL dynamically
-        const serverUrl = window.location.port === '5500' 
-            ? 'http://localhost:3000' 
-            : '';
+        const serverUrls = {
+            docker: 'http://localhost:3001',  // Server Handler
+            api: 'http://localhost:3002',     // API Server
+            user: 'http://localhost:3003'     // User Handler
+        };
 
         async function loadContainers() {
             try {
-                const response = await fetch(`${serverUrl}/api/docker/containers`);
+                const response = await fetch(`${serverUrls.docker}/containers`);
                 if (!response.ok) throw new Error('Failed to fetch containers');
                 
                 const containers = await response.json();
@@ -192,30 +198,16 @@
         }
 
         async function handleContainer(name, action) {
-            console.log(`Attempting to ${action} container: ${name}`); // Debug log
-            
             try {
-                let endpoint;
-                if (action === 'stop') {
-                    endpoint = `${serverUrl}/api/docker/stop/${name}`;
-                } else if (action === 'start') {
-                    endpoint = `${serverUrl}/api/docker/start/${name}`;
-                } else if (action === 'restart') {
-                    endpoint = `${serverUrl}/api/docker/restart/${name}`;
-                }
-
-                const response = await fetch(endpoint, {
+                const response = await fetch(`${serverUrls.docker}/${action}/${name}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     }
                 });
 
-                console.log('Response status:', response.status); // Debug log
-                
                 if (!response.ok) {
                     const errorData = await response.json();
-                    console.error('Server error:', errorData); // Debug log
                     throw new Error(errorData.error || `Failed to ${action} container`);
                 }
                 
@@ -252,7 +244,7 @@
             event.stopPropagation(); // Prevent card click event
             
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/start`, {
+                const response = await fetch(`${serverUrls.docker}/start/${serverName}`, {
                     method: 'POST'
                 });
 
@@ -276,7 +268,7 @@
             console.log('Attempting to stop server:', serverName); // Debug log
             
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/stop`, {
+                const response = await fetch(`${serverUrls.docker}/stop/${serverName}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -302,6 +294,13 @@
                 showToast(error.message, 'error');
             }
         }
+
+        // Load chat sidebar
+        fetch('chat-sidebar.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('chatSidebarContainer').innerHTML = html;
+            });
     </script>
 
     <style>

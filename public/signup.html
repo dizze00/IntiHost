@@ -40,6 +40,9 @@
         </div>
     </div>
 
+    <!-- Include chat sidebar -->
+    <div id="chatSidebarContainer"></div>
+
     <script>
         const serverUrl = window.location.port === '5500' 
             ? 'http://localhost:3000' 
@@ -95,6 +98,13 @@
             const form = document.getElementById('signupForm');
             form.parentNode.insertBefore(errorDiv, form.nextSibling);
         }
+
+        // Load chat sidebar
+        fetch('chat-sidebar.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('chatSidebarContainer').innerHTML = html;
+            });
     </script>
 
     <style>

@@ -85,6 +85,17 @@
         </div>
     </div>
 
+    <!-- Include chat sidebar -->
+    <div id="chatSidebarContainer"></div>
+
     <script src="admin.js"></script>
+    <script>
+        // Load chat sidebar
+        fetch('chat-sidebar.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('chatSidebarContainer').innerHTML = html;
+            });
+    </script>
 </body>
 </html> 

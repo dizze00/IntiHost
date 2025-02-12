@@ -316,4 +316,94 @@ html {
 
 .notification-exit {
     animation: slideInRight 0.3s ease-out reverse;
+}
+
+/* Dashboard Animations */
+.user-header {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.user-profile {
+    animation: slideInUp 0.3s ease-out;
+}
+
+.server-card {
+    animation: slideInUp 0.3s ease-out;
+    transition: all 0.3s ease;
+}
+
+.server-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.server-status {
+    animation: pulse 0.5s ease;
+}
+
+.account-circle {
+    animation: fadeIn 0.5s ease-out;
+    transition: transform 0.3s ease;
+}
+
+.account-circle:hover {
+    transform: scale(1.1);
+}
+
+/* Server Details Animations */
+.status-bar-container {
+    animation: slideInDown 0.3s ease-out;
+}
+
+.server-info {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.container-details {
+    animation: slideInUp 0.3s ease-out;
+}
+
+.status-badge {
+    animation: pulse 0.5s ease;
+}
+
+/* Admin Servers Animations */
+.container-card {
+    animation: slideInUp 0.3s ease-out;
+    transition: all 0.3s ease;
+}
+
+.container-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.no-servers {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Common Button Animations */
+.button {
+    transition: all 0.2s ease;
+}
+
+.button:hover {
+    transform: translateY(-2px);
+}
+
+.button:active {
+    transform: translateY(0);
+}
+
+/* Error and Toast Animations */
+.error-message {
+    animation: shake 0.5s ease;
+}
+
+.toast {
+    animation: slideInRight 0.3s ease-out;
+}
+
+.toast-exit {
+    animation: slideInRight 0.3s ease-out reverse;
 } 

@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="animations.css">
+    <link rel="stylesheet" href="server_details.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -158,12 +159,21 @@
         </div>
     </div>
 
+    <!-- Include chat sidebar -->
+    <div id="chatSidebarContainer"></div>
+
     <script>
         'use strict';
 
-        const serverUrl = window.location.port === '5500' ? 'http://localhost:3000' : '';
         const urlParams = new URLSearchParams(window.location.search);
         const serverName = urlParams.get('name');
+        
+        // Update server URLs to match our new ports
+        const serverUrls = {
+            docker: 'http://localhost:3001',  // Server Handler
+            api: 'http://localhost:3002',     // API Server
+            user: 'http://localhost:3003'     // User Handler
+        };
 
         // Set server name
         document.getElementById('serverName').textContent = serverName || 'Unknown Server';
@@ -207,16 +217,21 @@
         // Console functions
         async function loadConsole() {
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/console`);
-                if (!response.ok) throw new Error('Failed to fetch console output');
-                const data = await response.text();
+                const response = await fetch(`${serverUrls.docker}/logs/${serverName}`);
+                if (!response.ok) throw new Error('Failed to fetch container logs');
                 
+                const data = await response.text();
                 const consoleOutput = document.getElementById('consoleOutput');
-                consoleOutput.innerHTML = data ? formatConsoleOutput(data) : '<div class="console-line">No console output available</div>';
+                
+                if (data && data.trim()) {
+                    consoleOutput.innerHTML = formatConsoleOutput(data);
+                } else {
+                    consoleOutput.innerHTML = '<div class="console-line">No container output available.</div>';
+                }
                 scrollToBottom('consoleOutput');
             } catch (error) {
                 console.error('Error:', error);
-                document.getElementById('consoleOutput').innerHTML = `<div class="console-line error">${error.message}</div>`;
+                document.getElementById('consoleOutput').innerHTML = `<div class="console-line">Error: ${error.message}</div>`;
             }
         }
 
@@ -239,23 +254,22 @@
 
         async function sendCommand() {
             const commandInput = document.getElementById('commandInput');
-            const command = commandInput.value;
-            if (!command.trim()) return;
+            const command = commandInput.value.trim();
+            if (!command) return;
 
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/command`, {
+                const response = await fetch(`${serverUrls.docker}/exec/${serverName}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ command })
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to send command');
+                    throw new Error('Failed to execute command in container');
                 }
                 
                 commandInput.value = ''; // Clear input on success
                 await loadConsole(); // Refresh console output
-                showToast('Command sent successfully', 'success');
             } catch (error) {
                 console.error('Error:', error);
                 showToast(error.message, 'error');
@@ -269,7 +283,7 @@
 
         async function loadFiles() {
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/files`);
+                const response = await fetch(`${serverUrls.docker}/files/${serverName}`);
                 if (!response.ok) throw new Error('Failed to fetch files');
                 const files = await response.json();
                 
@@ -298,7 +312,7 @@
 
         async function loadLogs() {
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/logs`);
+                const response = await fetch(`${serverUrls.docker}/logs/${serverName}`);
                 if (!response.ok) throw new Error('Failed to fetch logs');
                 const logs = await response.text();
                 
@@ -380,10 +394,10 @@
 
             // Start auto-refresh
             updateServerInfo();
-            const updateInterval = setInterval(updateServerInfo, 5000);
+            const updateInterval = setInterval(updateServerInfo, 1000);
 
             // Cleanup on page unload
-            window.addEventListener('unload', () => {
+            window.addEventListener('beforeunload', () => {
                 clearInterval(updateInterval);
             });
         });
@@ -391,7 +405,7 @@
         // Update the updateServerInfo function to match the server cards functionality
         async function updateServerInfo() {
             try {
-                const response = await fetch(`${serverUrl}/api/docker/containers`);
+                const response = await fetch(`${serverUrls.docker}/containers`);
                 if (!response.ok) throw new Error('Failed to fetch containers');
                 
                 const containers = await response.json();
@@ -399,34 +413,32 @@
                 
                 if (!container) throw new Error('Container not found');
                 
-                updateStatusElements(container);
+                // Update status and uptime
+                const elements = {
+                    mainStatus: document.getElementById('serverStatus'),
+                    statusBadge: document.getElementById('serverStatusBadge'),
+                    uptime: document.getElementById('serverUptime')
+                };
+
+                if (elements.mainStatus) {
+                    const simpleStatus = getSimpleStatus(container.status);
+                    elements.mainStatus.textContent = simpleStatus;
+                    elements.mainStatus.className = `status-badge status-${getStatusClass(container.status)}`;
+                }
+
+                if (elements.statusBadge) {
+                    const simpleStatus = getSimpleStatus(container.status);
+                    elements.statusBadge.textContent = simpleStatus;
+                    elements.statusBadge.className = `status-badge status-${getStatusClass(container.status)}`;
+                }
+
+                if (elements.uptime) {
+                    elements.uptime.textContent = container.status.includes('Up') ? 
+                        container.status.replace('Up ', '') : 'Not running';
+                }
             } catch (error) {
                 console.error('Error updating server info:', error);
                 handleUpdateError();
-            }
-        }
-
-        function updateStatusElements(container) {
-            const elements = {
-                mainStatus: document.getElementById('serverStatus'),
-                statusBadge: document.getElementById('serverStatusBadge'),
-                uptime: document.getElementById('serverUptime')
-            };
-
-            if (elements.mainStatus) {
-                const simpleStatus = getSimpleStatus(container.status);
-                elements.mainStatus.textContent = simpleStatus;
-                elements.mainStatus.className = `status-badge status-${getStatusClass(container.status)}`;
-            }
-
-            if (elements.statusBadge) {
-                const simpleStatus = getSimpleStatus(container.status);
-                elements.statusBadge.textContent = simpleStatus;
-                elements.statusBadge.className = `status-badge status-${getStatusClass(container.status)}`;
-            }
-
-            if (elements.uptime) {
-                elements.uptime.textContent = container.status.replace('Up ', '');
             }
         }
 
@@ -479,11 +491,11 @@
                 
                 let endpoint;
                 if (action === 'stop') {
-                    endpoint = `${serverUrl}/api/docker/stop/${serverName}`;
+                    endpoint = `${serverUrls.docker}/stop/${serverName}`;
                 } else if (action === 'start') {
-                    endpoint = `${serverUrl}/api/docker/start/${serverName}`;
+                    endpoint = `${serverUrls.docker}/start/${serverName}`;
                 } else if (action === 'restart') {
-                    endpoint = `${serverUrl}/api/docker/restart/${serverName}`;
+                    endpoint = `${serverUrls.docker}/restart/${serverName}`;
                 }
 
                 const response = await fetch(endpoint, {
@@ -515,7 +527,7 @@
             usersList.innerHTML = '<div class="loading">Loading users...</div>';
 
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/users`);
+                const response = await fetch(`${serverUrls.user}/servers/${serverName}/users`);
                 if (!response.ok) throw new Error('Failed to fetch users');
                 const users = await response.json();
                 
@@ -556,7 +568,7 @@
             }
 
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/users`, {
+                const response = await fetch(`${serverUrls.user}/servers/${serverName}/users`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username })
@@ -575,7 +587,7 @@
 
         async function removeUserAccess(username) {
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/users/${username}`, {
+                const response = await fetch(`${serverUrls.user}/servers/${serverName}/users/${username}`, {
                     method: 'DELETE'
                 });
                 
@@ -598,7 +610,7 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch(`${serverUrl}/api/servers/${serverName}/files/upload`, {
+                const response = await fetch(`${serverUrls.docker}/files/upload/${serverName}`, {
                     method: 'POST',
                     body: formData
                 });
@@ -612,553 +624,13 @@
                 showToast(error.message, 'error');
             }
         }
-    </script>
 
-    <style>
-        /* Tab Styling */
-        .server-tabs {
-            display: flex;
-            gap: 1rem;
-            margin: 2rem 0;
-            background: white;
-            padding: 1rem;
-            border-radius: 15px;
-        }
-
-        .tab-button {
-            background: none;
-            border: none;
-            padding: 1rem 2rem;
-            font-size: 1rem;
-            cursor: pointer;
-            border-radius: 12px;
-            color: #6b7280;
-            transition: all 0.2s ease;
-            flex: 1;
-            text-align: center;
-        }
-
-        .tab-button.active {
-            background: #3b82f6;
-            color: white;
-        }
-
-        /* Tab Content Styling */
-        .tab-pane {
-            display: none;
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            margin-top: 1rem;
-        }
-
-        .tab-pane.active {
-            display: block;
-        }
-
-        /* Completely New Console Styling */
-        .console-output {
-            background: #2b2b2b;
-            background-image: linear-gradient(to bottom, #32363d, #2b2b2b);
-            color: #00ff00;
-            padding: 1rem;
-            border-radius: 12px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            height: 400px;
-            overflow-y: auto;
-            margin-bottom: 1rem;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-            line-height: 1.5;
-            border: 1px solid #444;
-        }
-
-        .console-line {
-            padding: 0.25rem 0;
-            text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
-        }
-
-        .console-line::before {
-            content: '> ';
-            color: #00aa00;
-        }
-
-        .console-input {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-            background: #2b2b2b;
-            padding: 1rem;
-            border-radius: 12px;
-            border: 1px solid #444;
-        }
-
-        .console-input input {
-            flex: 1;
-            padding: 0.75rem;
-            border: 1px solid #444;
-            border-radius: 12px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            background: #1a1a1a;
-            color: #00ff00;
-        }
-
-        .console-input input:focus {
-            outline: none;
-            border-color: #00ff00;
-            box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.1);
-        }
-
-        .console-input input::placeholder {
-            color: #00aa00;
-        }
-
-        /* Files Tab */
-        .file-explorer {
-            background: #f9fafb;
-            padding: 1rem;
-            border-radius: 12px;
-            height: 400px;
-            overflow-y: auto;
-        }
-
-        .file-toolbar {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            padding: 1rem;
-            background: white;
-            border-radius: 12px;
-        }
-
-        .file-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .file-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem;
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .file-item:hover {
-            background: #f3f4f6;
-        }
-
-        /* Logs Tab */
-        .log-controls {
-            margin-bottom: 1rem;
-            padding: 1rem;
-            background: #f9fafb;
-            border-radius: 12px;
-        }
-
-        .log-output {
-            background: white;
-            padding: 1rem;
-            border-radius: 12px;
-            font-family: monospace;
-            height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            border: 1px solid #e5e7eb;
-        }
-
-        /* Common Elements */
-        .button {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-            background: #f3f4f6;
-            color: #374151;
-        }
-
-        .button-primary {
-            background: #3b82f6;
-            color: white;
-        }
-
-        /* Main Content Background */
-        .main-content {
-            background: #f3f4f6;
-            padding: 2rem;
-            min-height: 100vh;
-        }
-
-        /* Header Styling */
-        .page-header {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 15px;
-            margin-bottom: 2rem;
-        }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-        }
-
-        .back-button {
-            color: #6b7280;
-            text-decoration: none;
-            padding: 0.5rem;
-            border-radius: 8px;
-            margin-right: 1rem;
-        }
-
-        /* Log Line Styling */
-        .log-line {
-            padding: 0.5rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .log-line:hover {
-            background: #f9fafb;
-        }
-
-        .server-controls {
-            background: white;
-            padding: 1rem;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .server-info {
-            display: flex;
-            gap: 2rem;
-        }
-
-        .info-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .label {
-            color: #6b7280;
-            font-weight: 500;
-        }
-
-        /* Status Badge Styling */
-        .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            display: inline-block;
-        }
-
-        .status-badge.status-running {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #16a34a;
-        }
-
-        .status-badge.status-stopped {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #dc2626;
-        }
-
-        .status-badge.status-unknown {
-            background: #f3f4f6;
-            color: #6b7280;
-            border: 1px solid #9ca3af;
-        }
-
-        /* Server Controls Status Badge */
-        .server-info .status-badge {
-            margin-left: 0.5rem;
-        }
-
-        .control-buttons {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .button-success {
-            background: #10b981;
-            color: white;
-        }
-
-        .button-danger {
-            background: #ef4444;
-            color: white;
-        }
-
-        .access-control {
-            background: white;
-            padding: 1rem;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-        }
-
-        .access-control h3 {
-            margin: 0 0 1rem 0;
-            color: #374151;
-        }
-
-        .access-form {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .access-form input {
-            flex: 1;
-            padding: 0.5rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-        }
-
-        .users-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .user-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem;
-            background: #f9fafb;
-            border-radius: 8px;
-        }
-
-        .remove-user {
-            color: #ef4444;
-            cursor: pointer;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-        }
-
-        .remove-user:hover {
-            background: #fee2e2;
-        }
-
-        /* Users Tab Styling */
-        .users-container {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .users-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .users-header h3 {
-            color: #374151;
-            margin: 0;
-        }
-
-        .users-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .users-actions input {
-            padding: 0.5rem 1rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 0.875rem;
-        }
-
-        .users-list {
-            display: grid;
-            gap: 0.75rem;
-        }
-
-        .user-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            background: #f9fafb;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
-            background: #e5e7eb;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #6b7280;
-        }
-
-        .user-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-name {
-            font-weight: 500;
-            color: #374151;
-        }
-
-        .user-added {
-            font-size: 0.75rem;
-            color: #6b7280;
-        }
-
-        .user-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .user-actions button {
-            padding: 0.5rem;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            color: #6b7280;
-            background: none;
-        }
-
-        .user-actions button:hover {
-            background: #f3f4f6;
-        }
-
-        .user-actions button.remove {
-            color: #ef4444;
-        }
-
-        .user-actions button.remove:hover {
-            background: #fee2e2;
-        }
-
-        // Add toast styling
-        const toastStyles = `
-            .toast {
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                padding: 1rem 2rem;
-                border-radius: 8px;
-                color: white;
-                font-weight: 500;
-                z-index: 1000;
-                animation: slideIn 0.3s ease-out;
-            }
-
-            .toast-success {
-                background-color: #10b981;
-            }
-
-            .toast-error {
-                background-color: #ef4444;
-            }
-
-            .toast-info {
-                background-color: #3b82f6;
-            }
-
-            @keyframes slideIn {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-
-        // Add the styles to the document
-        const styleSheet = document.createElement("style");
-        styleSheet.textContent = toastStyles;
-        document.head.appendChild(styleSheet);
-
-        // Add error handling for missing elements
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize all required elements
-            const requiredElements = [
-                'commandInput',
-                'consoleOutput',
-                'newUserInput',
-                'usersList',
-                'serverName',
-                'serverStatus',
-                'serverStatusBadge',
-                'serverUptime'
-            ];
-
-            requiredElements.forEach(id => {
-                const element = document.getElementById(id);
-                if (!element) {
-                    console.warn(`Missing element with id: ${id}`);
-                }
+        // Load chat sidebar
+        fetch('chat-sidebar.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('chatSidebarContainer').innerHTML = html;
             });
-
-            // Start the update interval
-            updateServerInfo();
-            setInterval(updateServerInfo, 5000);
-        });
-
-        // Add missing error handling styles
-        const errorStyles = `
-            .error {
-                color: #dc2626;
-                padding: 1rem;
-                background: #fee2e2;
-                border-radius: 8px;
-                margin: 1rem 0;
-            }
-
-            .loading {
-                text-align: center;
-                padding: 1rem;
-                color: #6b7280;
-            }
-
-            .empty-state {
-                text-align: center;
-                padding: 2rem;
-                color: #6b7280;
-                background: #f9fafb;
-                border-radius: 8px;
-            }
-
-            .console-line.error {
-                color: #dc2626;
-            }
-        `;
-
-        // Add the error styles to the document
-        const errorStyleSheet = document.createElement("style");
-        errorStyleSheet.textContent = errorStyles;
-        document.head.appendChild(errorStyleSheet);
-    </style>
+    </script>
 </body>
 </html> 

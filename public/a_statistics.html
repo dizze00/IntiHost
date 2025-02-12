@@ -87,6 +87,9 @@
         </div>
     </div>
 
+    <!-- Include chat sidebar -->
+    <div id="chatSidebarContainer"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         'use strict';
@@ -158,6 +161,13 @@
             loadDockerStats();
             setInterval(loadDockerStats, 5000);
         });
+
+        // Load chat sidebar
+        fetch('chat-sidebar.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('chatSidebarContainer').innerHTML = html;
+            });
     </script>
 
     <style>
