@@ -6,6 +6,7 @@
     <title>IntiHost - Settings</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="animations.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -40,9 +41,9 @@
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </a>
-                <a href="logout.html" class="menu-item">
+                <a href="login.html" class="menu-item">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
+                    <span>Login</span>
                 </a>
             </div>
         </div>
@@ -50,11 +51,23 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="page-header">
-                <h1>System Settings</h1>
+                <h1>Settings</h1>
             </div>
 
-            <!-- Settings Sections -->
             <div class="settings-container">
+                <!-- Language Settings -->
+                <div class="settings-section">
+                    <h2>Language</h2>
+                    <div class="settings-content">
+                        <select id="languageSelect" class="settings-select" onchange="changeLanguage()">
+                            <option value="en">English</option>
+                            <option value="es">Español</option>
+                            <option value="fr">Français</option>
+                            <option value="de">Deutsch</option>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- General Settings -->
                 <div class="settings-section">
                     <h2>General Settings</h2>
@@ -133,6 +146,53 @@
     </div>
 
     <script>
+        const serverUrl = window.location.port === '5500' 
+            ? 'http://localhost:3000' 
+            : '';
+
+        // Load saved language
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLanguage = localStorage.getItem('language') || 'en';
+            document.getElementById('languageSelect').value = savedLanguage;
+        });
+
+        // Change language function
+        async function changeLanguage() {
+            const language = document.getElementById('languageSelect').value;
+            
+            try {
+                const response = await fetch(`${serverUrl}/api/settings/language`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ language })
+                });
+
+                if (!response.ok) throw new Error('Failed to update language');
+
+                // Save to localStorage
+                localStorage.setItem('language', language);
+                
+                // Show success message
+                showToast('Language updated successfully', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to update language', 'error');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
         // Function to show success message
         function showSuccessMessage(message) {
             const toast = document.createElement('div');
@@ -202,31 +262,66 @@
     </script>
 
     <style>
-        /* Add these styles to your existing CSS or include them here */
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .settings-section h2 {
+            color: #374151;
+            margin: 0 0 1rem 0;
+            font-size: 1.25rem;
+        }
+
+        .settings-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .settings-select {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            color: #374151;
+            background: #f9fafb;
+            min-width: 200px;
+            cursor: pointer;
+        }
+
+        .settings-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
         .toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 2rem;
+            right: 2rem;
             padding: 1rem 2rem;
-            border-radius: 0.5rem;
+            border-radius: 8px;
             color: white;
             z-index: 1000;
             animation: slideIn 0.3s ease-out;
         }
 
-        .toast.success {
-            background-color: var(--success-color);
+        .toast-success {
+            background-color: #10b981;
         }
 
-        .toggle-label {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .settings-form {
-            max-width: 600px;
+        .toast-error {
+            background-color: #ef4444;
         }
 
         @keyframes slideIn {

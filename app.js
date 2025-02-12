@@ -727,3 +727,13 @@ function formatUptime(ms) {
     if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
     return `${seconds}s`;
 }
+
+// Language settings endpoint
+app.post('/api/settings/language', (req, res) => {
+    const { language } = req.body;
+    
+    // Add your language setting logic here
+    // For example, save to user preferences in database
+    
+    res.json({ message: 'Language updated successfully' });
+});
