@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - Server Details</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="animations.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>IntiHost</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="a_dashboard.html" class="menu-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="a_servers.html" class="menu-item active">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="a_users.html" class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                </a>
+                <a href="a_statistics.html" class="menu-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Statistics</span>
+                </a>
+                <a href="a_backups.html" class="menu-item">
+                    <i class="fas fa-database"></i>
+                    <span>Backups</span>
+                </a>
+                <a href="a_settings.html" class="menu-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="logout.html" class="menu-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <div class="header-title">
+                    <a href="a_servers.html" class="back-button">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <h1 id="serverName">Loading...</h1>
+                </div>
+                <div id="serverStatus" class="server-status"></div>
+            </div>
+
+            <!-- Server Management Tabs -->
+            <div class="server-tabs">
+                <button class="tab-button active" onclick="showTab('console')">
+                    <i class="fas fa-terminal"></i> Console
+                </button>
+                <button class="tab-button" onclick="showTab('files')">
+                    <i class="fas fa-folder"></i> Files
+                </button>
+                <button class="tab-button" onclick="showTab('logs')">
+                    <i class="fas fa-list"></i> Logs
+                </button>
+                <button class="tab-button" onclick="showTab('users')">
+                    <i class="fas fa-users"></i> Users
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Console Tab -->
+                <div id="console" class="tab-pane active">
+                    <!-- Server Controls -->
+                    <div class="server-controls">
+                        <div class="server-info">
+                            <div class="info-item">
+                                <span class="label">Status:</span>
+                                <span id="serverStatusBadge" class="status-badge">Checking...</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Uptime:</span>
+                                <span id="serverUptime">Checking...</span>
+                            </div>
+                        </div>
+                        <div class="control-buttons">
+                            <button onclick="handleServerAction('start')" class="button button-success">
+                                <i class="fas fa-play"></i> Start
+                            </button>
+                            <button onclick="handleServerAction('stop')" class="button button-danger">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                            <button onclick="handleServerAction('restart')" class="button button-primary">
+                                <i class="fas fa-sync"></i> Restart
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Console Output -->
+                    <div class="console-output" id="consoleOutput"></div>
+                    <div class="console-input">
+                        <input type="text" id="commandInput" placeholder="Enter command...">
+                        <button onclick="sendCommand()" class="button button-primary">
+                            <i class="fas fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Files Tab -->
+                <div id="files" class="tab-pane">
+                    <div class="file-explorer">
+                        <div class="file-toolbar">
+                            <button onclick="refreshFiles()" class="button">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                            <input type="file" id="fileUpload" style="display: none">
+                            <button onclick="document.getElementById('fileUpload').click()" class="button button-primary">
+                                <i class="fas fa-upload"></i> Upload
+                            </button>
+                        </div>
+                        <div class="file-list" id="fileList"></div>
+                    </div>
+                </div>
+
+                <!-- Logs Tab -->
+                <div id="logs" class="tab-pane">
+                    <div class="log-controls">
+                        <button onclick="refreshLogs()" class="button">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="log-output" id="logOutput"></div>
+                </div>
+
+                <!-- Users Tab -->
+                <div id="users" class="tab-pane">
+                    <div class="users-container">
+                        <div class="users-header">
+                            <h3>Server Access Control</h3>
+                            <div class="users-actions">
+                                <input type="text" id="newUserInput" placeholder="Enter username">
+                                <button onclick="addUserAccess()" class="button button-primary">
+                                    <i class="fas fa-plus"></i> Add User
+                                </button>
+                            </div>
+                        </div>
+                        <div class="users-list" id="usersList">
+                            <!-- Users will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const serverUrl = window.location.port === '5500' ? 'http://localhost:3000' : '';
+        const urlParams = new URLSearchParams(window.location.search);
+        const serverName = urlParams.get('name');
+
+        // Set server name
+        document.getElementById('serverName').textContent = serverName || 'Unknown Server';
+
+        // Tab switching
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`button[onclick="showTab('${tabId}')"]`).classList.add('active');
+
+            // Load content based on tab
+            if (tabId === 'console') loadConsole();
+            if (tabId === 'files') loadFiles();
+            if (tabId === 'logs') loadLogs();
+            if (tabId === 'users') loadUsers();
+        }
+
+        // Console functions
+        async function loadConsole() {
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/console`);
+                if (!response.ok) throw new Error('Failed to fetch console output');
+                const data = await response.text();
+                
+                // Clear any existing content
+                const consoleOutput = document.getElementById('consoleOutput');
+                consoleOutput.innerHTML = ''; // Clear the servform content
+                
+                // Add actual console output
+                if (data) {
+                    consoleOutput.innerHTML = formatConsoleOutput(data);
+                } else {
+                    consoleOutput.innerHTML = '<div class="console-line">No console output available</div>';
+                }
+                
+                scrollToBottom('consoleOutput');
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('consoleOutput').innerHTML = `<div class="console-line error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function formatConsoleOutput(text) {
+            return text.split('\n')
+                .map(line => `<div class="console-line">${line}</div>`)
+                .join('');
+        }
+
+        async function sendCommand() {
+            const command = document.getElementById('commandInput').value;
+            if (!command.trim()) return;
+
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command })
+                });
+
+                if (!response.ok) throw new Error('Failed to send command');
+                
+                document.getElementById('commandInput').value = '';
+                await loadConsole();
+            } catch (error) {
+                console.error('Error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // File functions
+        async function loadFiles() {
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/files`);
+                if (!response.ok) throw new Error('Failed to fetch files');
+                const files = await response.json();
+                
+                document.getElementById('fileList').innerHTML = files.map(file => `
+                    <div class="file-item">
+                        <i class="fas fa-${file.type === 'directory' ? 'folder' : 'file'}"></i>
+                        <span>${file.name}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('fileList').innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        // Log functions
+        async function loadLogs() {
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/logs`);
+                if (!response.ok) throw new Error('Failed to fetch logs');
+                const logs = await response.text();
+                document.getElementById('logOutput').innerHTML = formatLogs(logs);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('logOutput').innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        function formatLogs(text) {
+            return text.split('\n')
+                .map(line => `<div class="log-line">${line}</div>`)
+                .join('');
+        }
+
+        function scrollToBottom(elementId) {
+            const element = document.getElementById(elementId);
+            element.scrollTop = element.scrollHeight;
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConsole();
+        });
+
+        // Command input enter key handler
+        document.getElementById('commandInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendCommand();
+        });
+
+        // Add these functions to your existing JavaScript
+        async function updateServerInfo() {
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/info`);
+                if (!response.ok) throw new Error('Failed to fetch server info');
+                const data = await response.json();
+                
+                // Update status
+                const statusBadge = document.getElementById('serverStatusBadge');
+                statusBadge.textContent = data.status;
+                statusBadge.className = `status-badge ${data.status.toLowerCase()}`;
+                
+                // Update uptime
+                document.getElementById('serverUptime').textContent = data.uptime;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function handleServerAction(action) {
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/${action}`, {
+                    method: 'POST'
+                });
+                if (!response.ok) throw new Error(`Failed to ${action} server`);
+                
+                updateServerInfo();
+                showToast(`Server ${action}ed successfully`, 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function loadUsers() {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '<div class="loading">Loading users...</div>';
+
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/users`);
+                if (!response.ok) throw new Error('Failed to fetch users');
+                const users = await response.json();
+                
+                if (users.length === 0) {
+                    usersList.innerHTML = '<div class="empty-state">No users have access to this server</div>';
+                    return;
+                }
+
+                usersList.innerHTML = users.map(user => `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <div class="user-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="user-details">
+                                <span class="user-name">${user}</span>
+                                <span class="user-added">Added on ${new Date().toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <div class="user-actions">
+                            <button class="remove" onclick="removeUserAccess('${user}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error:', error);
+                usersList.innerHTML = '<div class="error">Failed to load users</div>';
+            }
+        }
+
+        async function addUserAccess() {
+            const username = document.getElementById('usernameInput').value.trim();
+            if (!username) return;
+
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                
+                if (!response.ok) throw new Error('Failed to add user');
+                
+                document.getElementById('usernameInput').value = '';
+                loadUsers();
+                showToast('User access added successfully', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function removeUserAccess(username) {
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/users/${username}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) throw new Error('Failed to remove user');
+                
+                loadUsers();
+                showToast('User access removed successfully', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Add to your existing DOMContentLoaded event
+        document.addEventListener('DOMContentLoaded', () => {
+            updateServerInfo();
+            loadUsers();
+            setInterval(updateServerInfo, 5000); // Update every 5 seconds
+        });
+    </script>
+
+    <style>
+        /* Tab Styling */
+        .server-tabs {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            background: white;
+            padding: 1rem;
+            border-radius: 15px;
+        }
+
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 12px;
+            color: #6b7280;
+            transition: all 0.2s ease;
+            flex: 1;
+            text-align: center;
+        }
+
+        .tab-button.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        /* Tab Content Styling */
+        .tab-pane {
+            display: none;
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin-top: 1rem;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Completely New Console Styling */
+        .console-output {
+            background: #2b2b2b;
+            background-image: linear-gradient(to bottom, #32363d, #2b2b2b);
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+            line-height: 1.5;
+            border: 1px solid #444;
+        }
+
+        .console-line {
+            padding: 0.25rem 0;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+
+        .console-line::before {
+            content: '> ';
+            color: #00aa00;
+        }
+
+        .console-input {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            background: #2b2b2b;
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid #444;
+        }
+
+        .console-input input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #444;
+            border-radius: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+
+        .console-input input:focus {
+            outline: none;
+            border-color: #00ff00;
+            box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.1);
+        }
+
+        .console-input input::placeholder {
+            color: #00aa00;
+        }
+
+        /* Files Tab */
+        .file-explorer {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 12px;
+            height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-toolbar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .file-item:hover {
+            background: #f3f4f6;
+        }
+
+        /* Logs Tab */
+        .log-controls {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 12px;
+        }
+
+        .log-output {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            font-family: monospace;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            border: 1px solid #e5e7eb;
+        }
+
+        /* Common Elements */
+        .button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .button-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        /* Main Content Background */
+        .main-content {
+            background: #f3f4f6;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        /* Header Styling */
+        .page-header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+        }
+
+        .back-button {
+            color: #6b7280;
+            text-decoration: none;
+            padding: 0.5rem;
+            border-radius: 8px;
+            margin-right: 1rem;
+        }
+
+        /* Log Line Styling */
+        .log-line {
+            padding: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .log-line:hover {
+            background: #f9fafb;
+        }
+
+        .server-controls {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .server-info {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-badge.running {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-badge.stopped {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .button-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .button-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .access-control {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .access-control h3 {
+            margin: 0 0 1rem 0;
+            color: #374151;
+        }
+
+        .access-form {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .access-form input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+
+        .users-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .remove-user {
+            color: #ef4444;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .remove-user:hover {
+            background: #fee2e2;
+        }
+
+        /* Users Tab Styling */
+        .users-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .users-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .users-header h3 {
+            color: #374151;
+            margin: 0;
+        }
+
+        .users-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .users-actions input {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .users-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .user-added {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .user-actions button {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #6b7280;
+            background: none;
+        }
+
+        .user-actions button:hover {
+            background: #f3f4f6;
+        }
+
+        .user-actions button.remove {
+            color: #ef4444;
+        }
+
+        .user-actions button.remove:hover {
+            background: #fee2e2;
+        }
+    </style>
+</body>
+</html> 

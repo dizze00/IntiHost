@@ -3,174 +3,239 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IntiHost Admin Dashboard</title>
+    <title>IntiHost - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
+    <div class="admin-container">
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-logo">
                 <h2>IntiHost</h2>
             </div>
-            
-            <!-- Account Section -->
-            <div class="account-section">
-                <div class="account-circle" onclick="toggleAccountMenu()">
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="account-menu" id="accountMenu">
-                    <div class="account-info">
-                        <h3 id="accountName">Loading...</h3>
-                        <p id="accountEmail">Loading...</p>
-                    </div>
-                    <div class="account-links">
-                        <a href="#" onclick="openAccountSettings()">
-                            <i class="fas fa-cog"></i> Settings
-                        </a>
-                        <a href="#" onclick="logout()">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </a>
-                    </div>
-                </div>
+            <div class="sidebar-menu">
+                <a href="a_dashboard.html" class="menu-item active">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="a_servers.html" class="menu-item">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="a_users.html" class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                </a>
+                <a href="a_statistics.html" class="menu-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Statistics</span>
+                </a>
+                <a href="a_backups.html" class="menu-item">
+                    <i class="fas fa-database"></i>
+                    <span>Backups</span>
+                </a>
+                <a href="a_settings.html" class="menu-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="logout.html" class="menu-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
             </div>
-
-            <a href="a_dashboard.html" class="menu-item active">
-                <i class="fas fa-home"></i>
-                Dashboard
-            </a>
-            <a href="a_servers.html" class="menu-item">
-                <i class="fas fa-server"></i>
-                Servers
-            </a>
-            <a href="a_users.html" class="menu-item">
-                <i class="fas fa-users"></i>
-                Users
-            </a>
-            <a href="a_status.html" class="menu-item">
-                <i class="fas fa-signal"></i>
-                Status
-            </a>
-            <a href="a_backups.html" class="menu-item">
-                <i class="fas fa-database"></i>
-                Backups
-            </a>
-            <div class="menu-divider"></div>
-            <a href="dashboard.html" class="menu-item">
-                <i class="fas fa-user"></i>
-                User View
-            </a>
-            <a href="#" onclick="logout()" class="menu-item">
-                <i class="fas fa-sign-out-alt"></i>
-                Logout
-            </a>
         </div>
 
         <!-- Main Content -->
         <div class="main-content">
-            <div class="header">
-                <h1>Admin Dashboard</h1>
+            <div class="page-header">
+                <h1>Dashboard</h1>
             </div>
 
-            <!-- Stats Cards -->
-            <div class="stats-container">
-                <div class="stats-card">
-                    <div class="stats-info">
-                        <h3>Total Servers</h3>
-                        <p id="total-servers">0/0</p>
-                    </div>
-                    <div class="stats-icon">
-                        <i class="fas fa-server"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Server Grid -->
-            <div class="section-header">
-                <h2>Active Servers</h2>
-                <div class="button-group">
-                    <button class="button button-refresh" onclick="refreshServers()">
-                        <i class="fas fa-sync"></i> Refresh
-                    </button>
-                    <button class="button button-start" onclick="startAllServers()">
-                        <i class="fas fa-play"></i> Start All
-                    </button>
-                    <button class="button button-stop" onclick="stopAllServers()">
-                        <i class="fas fa-stop"></i> Stop All
-                    </button>
-                </div>
-            </div>
-            <div class="server-grid">
-                <!-- Server cards will be dynamically added here -->
+            <!-- Action Bar -->
+            <div class="action-bar">
+                <button onclick="handleBulkAction('start')" class="action-button start">
+                    <i class="fas fa-play"></i>
+                    Start All
+                </button>
+                <div class="divider"></div>
+                <button onclick="handleBulkAction('stop')" class="action-button stop">
+                    <i class="fas fa-stop"></i>
+                    Stop All
+                </button>
+                <div class="divider"></div>
+                <button onclick="handleBulkAction('restart')" class="action-button restart">
+                    <i class="fas fa-sync"></i>
+                    Restart All
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Add account.js before admin.js -->
-    <script src="js/account.js"></script>
-    <script src="admin.js"></script>
     <script>
-        async function logout() {
+        const serverUrl = window.location.port === '5500' 
+            ? 'http://localhost:3000' 
+            : '';
+
+        async function handleBulkAction(action) {
+            const button = event.currentTarget;
+            const originalText = button.innerHTML;
+            
             try {
-                const response = await fetch('http://localhost:3000/api/logout', {
-                    method: 'POST',
-                    credentials: 'include'
+                button.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Processing...`;
+                button.disabled = true;
+
+                const response = await fetch(`${serverUrl}/api/docker/${action}-all`, {
+                    method: 'POST'
                 });
                 
-                if (response.ok) {
-                    window.location.href = '/public/login.html';
-                } else {
-                    console.error('Logout failed');
-                    alert('Logout failed. Please try again.');
+                if (!response.ok) {
+                    throw new Error(`Failed to ${action} containers`);
                 }
+                
+                showToast(`Successfully ${action}ed all servers`, 'success');
             } catch (error) {
-                console.error('Logout failed:', error);
-                alert('Logout failed. Please try again.');
+                console.error('Error:', error);
+                showToast(`Failed to ${action} servers: ${error.message}`, 'error');
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
             }
         }
 
-        async function refreshServers() {
-            updateServerStatus();
-        }
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
 
-        async function startAllServers() {
-            if (confirm('Are you sure you want to start all servers?')) {
-                try {
-                    const response = await fetch('/api/servers/start-all', {
-                        method: 'POST',
-                        credentials: 'include'
-                    });
-                    if (response.ok) {
-                        updateServerStatus();
-                    } else {
-                        alert('Failed to start all servers');
-                    }
-                } catch (error) {
-                    console.error('Error starting all servers:', error);
-                    alert('Failed to start all servers');
-                }
-            }
-        }
-
-        async function stopAllServers() {
-            if (confirm('Are you sure you want to stop all servers?')) {
-                try {
-                    const response = await fetch('/api/servers/stop-all', {
-                        method: 'POST',
-                        credentials: 'include'
-                    });
-                    if (response.ok) {
-                        updateServerStatus();
-                    } else {
-                        alert('Failed to stop all servers');
-                    }
-                } catch (error) {
-                    console.error('Error stopping all servers:', error);
-                    alert('Failed to stop all servers');
-                }
-            }
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
         }
     </script>
+
+    <style>
+        .action-bar {
+            background: white;
+            padding: 1rem;
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        .action-button {
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: white;
+            font-weight: 500;
+            flex: 1;
+            justify-content: center;
+            border-radius: 12px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+        }
+
+        .action-button.start {
+            background-color: #10b981;
+        }
+
+        .action-button.stop {
+            background-color: #ef4444;
+        }
+
+        .action-button.restart {
+            background-color: #3b82f6;
+        }
+
+        .action-button i {
+            transition: transform 0.3s ease;
+        }
+
+        .action-button:hover i.fa-sync {
+            transform: rotate(180deg);
+        }
+
+        .action-button:hover i.fa-play {
+            transform: translateX(3px);
+        }
+
+        .action-button:hover i.fa-stop {
+            transform: scale(0.9);
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background: #e5e7eb;
+            margin: 0 1rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            color: white;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-success {
+            background-color: #10b981;
+        }
+
+        .toast-error {
+            background-color: #ef4444;
+        }
+
+        .action-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .fa-circle-notch {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 </body>
 </html>

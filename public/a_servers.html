@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IntiHost - Servers</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="admin-container">
@@ -49,60 +50,293 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="page-header">
-                <h1>Servers Overview</h1>
-                <div class="search-bar">
-                    <input type="text" placeholder="Search servers...">
-                    <a href="servform.html" class="button button-primary" style="pointer-events: auto;">
-                        <i class="fas fa-plus"></i> New Server
+                <h1>Servers</h1>
+                <div class="header-actions">
+                    <button class="button button-primary" onclick="refreshContainers()">
+                        <i class="fas fa-sync"></i>
+                        Refresh
+                    </button>
+                    <a href="servform.html" class="button button-primary">
+                        <i class="fas fa-plus"></i>
+                        New Server
                     </a>
                 </div>
             </div>
-            
-            <!-- Statistics Cards -->
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <h3><i class="fas fa-server"></i> Active Servers</h3>
-                    <h2 id="active-servers">Loading...</h2>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="servers-progress"></div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Server Grid -->
-            <h2>Active Servers</h2>
-            <div class="server-grid">
-                <!-- Server cards will be dynamically added here -->
+            <!-- Docker Containers Section -->
+            <div class="containers-section">
+                <div class="containers-grid" id="containersGrid">
+                    <!-- Containers will be loaded here -->
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="admin.js"></script>
     <script>
-        // Function to update server statistics
-        async function updateServerStats() {
+        // Get the server URL dynamically
+        const serverUrl = window.location.port === '5500' 
+            ? 'http://localhost:3000' 
+            : '';
+
+        async function loadContainers() {
             try {
-                const response = await fetch('/api/servers/stats');
-                const data = await response.json();
+                const response = await fetch(`${serverUrl}/api/docker/containers`);
+                if (!response.ok) throw new Error('Failed to fetch containers');
                 
-                const activeServers = document.getElementById('active-servers');
-                const serversProgress = document.getElementById('servers-progress');
+                const containers = await response.json();
+                const grid = document.getElementById('containersGrid');
                 
-                const activeCount = data.activeServers;
-                const totalCount = data.totalServers;
-                const percentage = (activeCount / totalCount) * 100;
-                
-                activeServers.textContent = `${activeCount}/${totalCount}`;
-                serversProgress.style.width = `${percentage}%`;
+                if (containers.length === 0) {
+                    grid.innerHTML = `
+                        <div class="no-servers">
+                            <i class="fas fa-server"></i>
+                            <h3>No Servers Found</h3>
+                            <p>Create a new server to get started</p>
+                            <a href="servform.html" class="button button-primary">Create Server</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                grid.innerHTML = containers.map(container => `
+                    <div class="container-card ${getStatusClass(container.status)}">
+                        <div class="container-header">
+                            <div class="server-info">
+                                <h3>${container.name}</h3>
+                                <span class="server-type">
+                                    ${getServerType(container.name)}
+                                </span>
+                            </div>
+                            <span class="status-badge">${getSimpleStatus(container.status)}</span>
+                        </div>
+                        <div class="container-details">
+                            <p><strong>ID:</strong> ${container.id.substring(0, 12)}</p>
+                            <p><strong>Ports:</strong> ${container.ports || 'None'}</p>
+                            <p><strong>Status:</strong> ${container.status}</p>
+                        </div>
+                        <div class="container-actions">
+                            <button onclick="handleContainer('${container.name}', '${container.status.includes('Up') ? 'stop' : 'start'}')" 
+                                    class="button ${container.status.includes('Up') ? 'button-warning' : 'button-success'}">
+                                <i class="fas fa-${container.status.includes('Up') ? 'stop' : 'play'}"></i>
+                                ${container.status.includes('Up') ? 'Stop' : 'Start'}
+                            </button>
+                            <button onclick="handleContainer('${container.name}', 'restart')" 
+                                    class="button button-primary">
+                                <i class="fas fa-sync"></i>
+                                Restart
+                            </button>
+                            <a href="server_details.html?name=${container.name}" 
+                               class="button button-info">
+                                <i class="fas fa-terminal"></i>
+                                Manage
+                            </a>
+                        </div>
+                    </div>
+                `).join('');
             } catch (error) {
-                console.error('Error fetching server stats:', error);
+                console.error('Error:', error);
+                document.getElementById('containersGrid').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Error Loading Servers</h3>
+                        <p>${error.message}</p>
+                        <button onclick="refreshContainers()" class="button button-primary">Try Again</button>
+                    </div>
+                `;
             }
         }
 
-        // Update stats when page loads
-        document.addEventListener('DOMContentLoaded', updateServerStats);
+        function getStatusClass(status) {
+            if (status.includes('Up')) return 'running';
+            if (status.includes('Exited')) return 'stopped';
+            return 'other';
+        }
+
+        function getSimpleStatus(status) {
+            if (status.includes('Up')) return 'Running';
+            if (status.includes('Exited')) return 'Stopped';
+            return 'Unknown';
+        }
+
+        function getServerType(name) {
+            if (name.toLowerCase().includes('minecraft')) {
+                return '<i class="fas fa-cube"></i> Minecraft';
+            } else if (name.toLowerCase().includes('web')) {
+                return '<i class="fas fa-globe"></i> Web Server';
+            } else if (name.toLowerCase().includes('db')) {
+                return '<i class="fas fa-database"></i> Database';
+            }
+            return '<i class="fas fa-server"></i> Other';
+        }
+
+        function getActionButtons(container) {
+            const isRunning = container.status.includes('Up');
+            return `
+                <button onclick="handleContainer('${container.name}', '${isRunning ? 'stop' : 'start'}')" 
+                        class="button ${isRunning ? 'button-warning' : 'button-success'}">
+                    <i class="fas fa-${isRunning ? 'stop' : 'play'}"></i>
+                    ${isRunning ? 'Stop' : 'Start'}
+                </button>
+                <button onclick="handleContainer('${container.name}', 'restart')" 
+                        class="button button-primary">
+                    <i class="fas fa-sync"></i>
+                    Restart
+                </button>
+                <button onclick="handleContainer('${container.name}', 'delete')" 
+                        class="button button-danger">
+                    <i class="fas fa-trash"></i>
+                    Delete
+                </button>
+            `;
+        }
+
+        async function handleContainer(name, action) {
+            try {
+                const response = await fetch(`${serverUrl}/api/servers/${name}/${action}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) throw new Error(`Failed to ${action} container`);
+                
+                // Refresh the containers list
+                await loadContainers();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function refreshContainers() {
+            loadContainers();
+        }
+
+        // Load containers when page loads
+        document.addEventListener('DOMContentLoaded', loadContainers);
     </script>
+
+    <style>
+        .containers-section {
+            margin: 2rem 0;
+        }
+
+        .containers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .container-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .container-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .container-card.running {
+            border-left: 4px solid #10b981;
+        }
+
+        .container-card.stopped {
+            border-left: 4px solid #ef4444;
+        }
+
+        .container-card.other {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .container-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .running .status-badge {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .stopped .status-badge {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .other .status-badge {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .container-details {
+            margin-bottom: 1rem;
+        }
+
+        .container-details p {
+            margin: 0.5rem 0;
+            font-size: 0.875rem;
+        }
+
+        .container-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .button-success {
+            background-color: #10b981;
+        }
+
+        .button-warning {
+            background-color: #f59e0b;
+        }
+
+        .button-danger {
+            background-color: #ef4444;
+        }
+
+        .button i {
+            margin-right: 0.5rem;
+        }
+
+        .no-servers {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 0.5rem;
+        }
+
+        .no-servers i {
+            font-size: 3rem;
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+
+        .error-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 3rem;
+            background: #fee2e2;
+            border-radius: 0.5rem;
+            color: #991b1b;
+        }
+
+        .error-message i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+    </style>
 </body>
 </html>
+

@@ -1,41 +1,57 @@
-/* Base Animation Keyframes */
+/* Base Animations */
 @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInRight {
     from {
+        transform: translateX(20px);
         opacity: 0;
-        transform: translateY(10px);
     }
     to {
+        transform: translateX(0);
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
 @keyframes slideInLeft {
     from {
-        opacity: 0;
         transform: translateX(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes scaleIn {
-    from {
         opacity: 0;
-        transform: scale(0.95);
     }
     to {
+        transform: translateX(0);
         opacity: 1;
-        transform: scale(1);
     }
 }
 
-@keyframes progressFill {
+@keyframes slideInUp {
     from {
-        width: 0;
+        transform: translateY(20px);
+        opacity: 0;
     }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
 /* Element Animations */
@@ -43,106 +59,261 @@
     animation: slideInLeft 0.5s ease-out;
 }
 
-.sidebar-logo {
-    animation: scaleIn 0.5s ease-out;
-}
-
-.sidebar-logo img {
-    transition: transform 0.3s ease;
-}
-
-.sidebar-logo:hover img {
-    transform: rotate(10deg);
-}
-
-.menu-item {
-    animation: slideInLeft 0.3s ease-out;
-    animation-fill-mode: both;
-}
-
-/* Staggered menu animations */
-.menu-item:nth-child(1) { animation-delay: 0.1s; }
-.menu-item:nth-child(2) { animation-delay: 0.2s; }
-.menu-item:nth-child(3) { animation-delay: 0.3s; }
-.menu-item:nth-child(4) { animation-delay: 0.4s; }
-.menu-item:nth-child(5) { animation-delay: 0.5s; }
-.menu-item:nth-child(6) { animation-delay: 0.6s; }
-.menu-item:nth-child(7) { animation-delay: 0.7s; }
-
 .page-header {
-    animation: fadeIn 0.5s ease-out;
+    animation: slideInUp 0.5s ease-out;
 }
 
-.search-bar input {
+.container-card {
+    animation: fadeIn 0.5s ease-out;
     transition: all 0.3s ease;
 }
 
-.search-bar input:focus {
-    transform: scale(1.02);
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+.container-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .button {
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.stat-card {
-    animation: scaleIn 0.5s ease-out;
+.button:active {
+    transform: scale(0.95);
+}
+
+.button i {
+    transition: transform 0.2s ease;
+}
+
+.button:hover i {
+    transform: scale(1.1);
+}
+
+.status-badge {
     transition: all 0.3s ease;
 }
 
-.stat-card:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+.status-badge:hover {
+    transform: scale(1.1);
 }
 
-.server-grid {
+.fa-sync {
+    transition: transform 0.4s ease;
+}
+
+.fa-sync:hover {
+    animation: spin 1s linear infinite;
+}
+
+.menu-item {
+    transition: all 0.3s ease;
+}
+
+.menu-item:hover {
+    transform: translateX(10px);
+}
+
+.tab-button {
+    transition: all 0.3s ease;
+}
+
+.tab-button:hover {
+    transform: translateY(-2px);
+}
+
+.file-item {
+    transition: all 0.2s ease;
+}
+
+.file-item:hover {
+    transform: translateX(5px);
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.console-input input {
+    transition: all 0.3s ease;
+}
+
+.console-input input:focus {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* State Animations */
+.loading {
+    animation: pulse 1.5s ease infinite;
+}
+
+.loading-spin {
+    animation: spin 1s linear infinite;
+}
+
+.tab-pane {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.toast {
+    animation: slideInRight 0.3s ease-out;
+}
+
+.error-message {
+    animation: shake 0.5s ease-in-out;
+}
+
+.success-animation {
+    animation: pulse 0.5s ease;
+}
+
+/* Interactive Elements */
+.interactive {
+    transition: all 0.2s ease;
+}
+
+.interactive:hover {
+    transform: scale(1.02);
+}
+
+/* Global Animations */
+html {
+    scroll-behavior: smooth;
+}
+
+* {
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Console & Logs */
+.console-output {
+    transition: all 0.3s ease;
+}
+
+.new-log-entry {
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* File Explorer */
+.file-explorer {
     animation: fadeIn 0.5s ease-out;
-    animation-delay: 0.3s;
-    animation-fill-mode: both;
 }
 
-.server-card {
-    animation: scaleIn 0.5s ease-out;
-    animation-fill-mode: both;
+/* Progress Bars */
+.progress-bar .fill {
+    transition: width 0.5s ease-out;
+}
+
+/* Status Changes */
+.status-change {
+    animation: pulse 0.5s ease;
+}
+
+/* Modals */
+.modal {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content {
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* Dropdowns */
+.dropdown-content {
+    animation: slideInUp 0.2s ease-out;
+}
+
+/* Sidebar Toggle */
+.sidebar-toggle {
+    transition: transform 0.3s ease;
+}
+
+.sidebar-collapsed .sidebar-toggle {
+    transform: rotate(180deg);
+}
+
+/* Cards */
+.card {
     transition: all 0.3s ease;
 }
 
-.server-card:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.progress-fill {
-    animation: progressFill 1s ease-out;
+/* Server Type Icons */
+.server-type i {
+    transition: transform 0.3s ease;
 }
 
-/* Form animations */
-.form-group {
+.server-type:hover i {
+    transform: rotate(360deg);
+}
+
+/* Action Buttons */
+.container-actions button {
+    transition: all 0.2s ease;
+}
+
+.container-actions button:hover {
+    transform: translateY(-2px);
+}
+
+.container-actions button:active {
+    transform: translateY(0);
+}
+
+/* Console Commands */
+.command-history {
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* File Operations */
+.file-operation-success {
+    animation: pulse 0.5s ease;
+}
+
+.file-operation-error {
+    animation: shake 0.5s ease;
+}
+
+/* Log Entries */
+.log-entry {
     animation: fadeIn 0.3s ease-out;
-    animation-fill-mode: both;
 }
 
-.form-group:nth-child(1) { animation-delay: 0.1s; }
-.form-group:nth-child(2) { animation-delay: 0.2s; }
-.form-group:nth-child(3) { animation-delay: 0.3s; }
-.form-group:nth-child(4) { animation-delay: 0.4s; }
-
-/* Modal animations */
-.modal {
-    animation: scaleIn 0.3s ease-out;
+/* Server Status Updates */
+.status-update {
+    animation: pulse 0.5s ease;
 }
 
-/* Table animations */
-.table-row {
+/* Navigation Transitions */
+.page-transition {
     animation: fadeIn 0.3s ease-out;
-    animation-fill-mode: both;
 }
 
-.table-row:nth-child(odd) { animation-delay: 0.1s; }
-.table-row:nth-child(even) { animation-delay: 0.2s; } 
+/* Search Inputs */
+.search-input {
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    transform: scale(1.02);
+}
+
+/* Tooltips */
+.tooltip {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Notifications */
+.notification {
+    animation: slideInRight 0.3s ease-out;
+}
+
+.notification-exit {
+    animation: slideInRight 0.3s ease-out reverse;
+} 

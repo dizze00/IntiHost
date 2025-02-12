@@ -330,14 +330,37 @@ app.get('/', (req, res) => {
 });
 
 // Docker containers endpoint
-app.get('/api/docker/containers', async (req, res) => {
-    try {
-        const containers = await docker.listContainers({ all: true });
-        res.json(containers);
-    } catch (error) {
-        console.error('Docker API error:', error);
-        res.status(500).json({ error: 'Failed to fetch container data' });
-    }
+app.get('/api/docker/containers', (req, res) => {
+    exec('docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"', (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error fetching Docker containers:', error);
+            return res.status(500).json({ message: 'Failed to fetch Docker containers' });
+        }
+
+        try {
+            // Handle empty response
+            if (!stdout.trim()) {
+                return res.json([]);
+            }
+
+            // Parse the Docker output into objects
+            const containers = stdout.trim().split('\n').map(line => {
+                const [id, name, status, ports] = line.split('\t');
+                return {
+                    id: id || '',
+                    name: name || '',
+                    status: status || '',
+                    ports: ports || ''
+                };
+            });
+
+            console.log('Found containers:', containers); // Debug log
+            res.json(containers);
+        } catch (parseError) {
+            console.error('Error parsing Docker output:', parseError);
+            res.status(500).json({ message: 'Failed to parse Docker output' });
+        }
+    });
 });
 
 // Create server endpoint
@@ -603,3 +626,104 @@ app.use((req, res, next) => {
     }
     next();
 });
+
+// Add these new endpoints for bulk actions
+app.post('/api/docker/start-all', (req, res) => {
+    exec('docker start $(docker ps -a -q)', (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error starting all containers:', error);
+            return res.status(500).json({ message: 'Failed to start containers' });
+        }
+        res.json({ message: 'All containers started' });
+    });
+});
+
+app.post('/api/docker/stop-all', (req, res) => {
+    exec('docker stop $(docker ps -q)', (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error stopping all containers:', error);
+            return res.status(500).json({ message: 'Failed to stop containers' });
+        }
+        res.json({ message: 'All containers stopped' });
+    });
+});
+
+app.post('/api/docker/restart-all', (req, res) => {
+    exec('docker restart $(docker ps -a -q)', (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error restarting all containers:', error);
+            return res.status(500).json({ message: 'Failed to restart containers' });
+        }
+        res.json({ message: 'All containers restarted' });
+    });
+});
+
+// Server console endpoint
+app.get('/api/servers/:name/console', (req, res) => {
+    const { name } = req.params;
+    exec(`docker logs ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error fetching console output:', error);
+            return res.status(500).send('Failed to fetch console output');
+        }
+        res.send(stdout || stderr || 'No console output available');
+    });
+});
+
+// Server info endpoint
+app.get('/api/servers/:name/info', (req, res) => {
+    const { name } = req.params;
+    exec(`docker inspect ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error fetching server info:', error);
+            return res.status(500).json({ error: 'Failed to fetch server info' });
+        }
+        
+        try {
+            const data = JSON.parse(stdout)[0];
+            const state = data.State;
+            const status = state.Running ? 'Running' : 'Stopped';
+            const startTime = new Date(state.StartedAt);
+            const uptime = state.Running ? formatUptime(Date.now() - startTime) : 'Not running';
+            
+            res.json({ status, uptime });
+        } catch (error) {
+            console.error('Error parsing server info:', error);
+            res.status(500).json({ error: 'Failed to parse server info' });
+        }
+    });
+});
+
+// Server users endpoints
+app.get('/api/servers/:name/users', (req, res) => {
+    const { name } = req.params;
+    // Implement your user access logic here
+    // This is a placeholder that returns an empty array
+    res.json([]);
+});
+
+app.post('/api/servers/:name/users', (req, res) => {
+    const { name } = req.params;
+    const { username } = req.body;
+    // Implement your user access logic here
+    res.json({ message: 'User access added' });
+});
+
+app.delete('/api/servers/:name/users/:username', (req, res) => {
+    const { name, username } = req.params;
+    // Implement your user access logic here
+    res.json({ message: 'User access removed' });
+});
+
+// Helper function to format uptime
+function formatUptime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
+}
