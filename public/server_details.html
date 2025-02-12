@@ -388,80 +388,93 @@
             });
         });
 
-        // Update the updateServerInfo function to match the server cards functionality
         async function updateServerInfo() {
             try {
+                // Use the same endpoint as the server list
                 const response = await fetch(`${serverUrl}/api/docker/containers`);
                 if (!response.ok) throw new Error('Failed to fetch containers');
                 
                 const containers = await response.json();
-                const container = containers.find(c => c.name === serverName);
+                console.log('Containers:', containers);
                 
+                // Find our container
+                const container = containers.find(c => c.name === serverName);
                 if (!container) throw new Error('Container not found');
                 
-                updateStatusElements(container);
-            } catch (error) {
-                console.error('Error updating server info:', error);
-                handleUpdateError();
-            }
-        }
-
-        function updateStatusElements(container) {
-            const elements = {
-                mainStatus: document.getElementById('serverStatus'),
-                statusBadge: document.getElementById('serverStatusBadge'),
-                uptime: document.getElementById('serverUptime')
-            };
-
-            if (elements.mainStatus) {
-                const simpleStatus = getSimpleStatus(container.status);
-                elements.mainStatus.textContent = simpleStatus;
-                elements.mainStatus.className = `status-badge status-${getStatusClass(container.status)}`;
-            }
-
-            if (elements.statusBadge) {
-                const simpleStatus = getSimpleStatus(container.status);
-                elements.statusBadge.textContent = simpleStatus;
-                elements.statusBadge.className = `status-badge status-${getStatusClass(container.status)}`;
-            }
-
-            if (elements.uptime) {
-                elements.uptime.textContent = container.status.replace('Up ', '');
-            }
-        }
-
-        function handleUpdateError() {
-            const elements = ['serverStatus', 'serverStatusBadge'].map(id => 
-                document.getElementById(id)
-            );
-
-            elements.forEach(element => {
-                if (element) {
-                    element.textContent = 'Unknown';
-                    element.className = 'status-badge status-unknown';
+                // Update status badge using the same logic as server list
+                const serverStatusBadge = document.getElementById('serverStatusBadge');
+                if (serverStatusBadge) {
+                    const status = getSimpleStatus(container.status);
+                    const statusDot = `<span class="status-dot ${status.toLowerCase()}"></span>`;
+                    serverStatusBadge.innerHTML = `${statusDot} ${status}`;
                 }
-            });
 
-            const uptimeElement = document.getElementById('serverUptime');
-            if (uptimeElement) {
-                uptimeElement.textContent = 'Unknown';
+                // Update uptime from container status
+                const serverUptime = document.getElementById('serverUptime');
+                if (serverUptime) {
+                    if (container.status.includes('Up')) {
+                        // Extract uptime from status string (e.g., "Up 2 hours")
+                        const uptime = container.status.split('Up ')[1].split(' (')[0];
+                        serverUptime.textContent = uptime;
+                    } else {
+                        serverUptime.textContent = '00:00:00';
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                
+                // Set status to Stopped
+                const serverStatusBadge = document.getElementById('serverStatusBadge');
+                if (serverStatusBadge) {
+                    serverStatusBadge.innerHTML = '<span class="status-dot stopped"></span> Stopped';
+                }
+                
+                // Reset uptime
+                const serverUptime = document.getElementById('serverUptime');
+                if (serverUptime) {
+                    serverUptime.textContent = '00:00:00';
+                }
             }
         }
 
-        // Add these helper functions from the server cards
-        function getStatusClass(status) {
-            if (typeof status !== 'string') return 'unknown';
-            if (status.includes('Up')) return 'running';
-            if (status.includes('Exited')) return 'stopped';
-            return 'unknown';
-        }
-
+        // Add the helper functions from the server list
         function getSimpleStatus(status) {
-            if (typeof status !== 'string') return 'Unknown';
             if (status.includes('Up')) return 'Running';
             if (status.includes('Exited')) return 'Stopped';
             return 'Unknown';
         }
+
+        // Add the exact same CSS as the server card
+        const style = document.createElement('style');
+        style.textContent = `
+            .status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 6px;
+            }
+
+            .status-dot.running {
+                background-color: #10b981;
+            }
+
+            .status-dot.stopped {
+                background-color: #ef4444;
+            }
+
+            .status-dot.unknown {
+                background-color: #f59e0b;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Update every second
+        setInterval(updateServerInfo, 1000);
+
+        // Initial update
+        updateServerInfo();
 
         // Add this function for toast notifications
         function showToast(message, type = 'info') {
@@ -854,29 +867,22 @@
 
         /* Status Badge Styling */
         .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             font-weight: 500;
-            display: inline-block;
         }
 
-        .status-badge.status-running {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #16a34a;
+        .status-badge i {
+            font-size: 0.75rem;
         }
 
-        .status-badge.status-stopped {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #dc2626;
+        .status-running {
+            color: #10b981;
         }
 
-        .status-badge.status-unknown {
-            background: #f3f4f6;
-            color: #6b7280;
-            border: 1px solid #9ca3af;
+        .status-stopped {
+            color: #ef4444;
         }
 
         /* Server Controls Status Badge */

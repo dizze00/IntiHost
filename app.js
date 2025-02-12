@@ -958,5 +958,37 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Add this with your other routes
+app.get('/api/server/stats', async (req, res) => {
+    try {
+        const stats = {
+            status: 'Online',
+            startTime: process.uptime() * 1000, // Convert to milliseconds
+            cpu: await getCPUUsage(),
+            memory: await getMemoryUsage()
+        };
+        res.json(stats);
+    } catch (error) {
+        console.error('Error getting server stats:', error);
+        res.status(500).json({ error: 'Failed to get server stats' });
+    }
+});
+
+// Helper functions for getting system stats
+async function getCPUUsage() {
+    // This is a simple implementation. You might want to use a library like `os-utils` for more accurate readings
+    const startUsage = process.cpuUsage();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const endUsage = process.cpuUsage(startUsage);
+    const totalUsage = (endUsage.user + endUsage.system) / 1000000; // Convert to seconds
+    return Math.round(totalUsage * 100);
+}
+
+async function getMemoryUsage() {
+    const used = process.memoryUsage().heapUsed;
+    const total = process.memoryUsage().heapTotal;
+    return Math.round((used / total) * 100);
+}
+
 export default app;
         
