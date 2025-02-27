@@ -126,6 +126,11 @@
                                 <i class="fas fa-sync"></i>
                                 Restart
                             </button>
+                            <button onclick="handleContainer('${container.name}', 'remove')" 
+                                    class="button button-danger">
+                                <i class="fas fa-trash"></i>
+                                Remove
+                            </button>
                             <a href="server_details.html?name=${container.name}" 
                                class="button button-info">
                                 <i class="fas fa-terminal"></i>
@@ -192,18 +197,18 @@
         }
 
         async function handleContainer(name, action) {
-            console.log(`Attempting to ${action} container: ${name}`); // Debug log
+            console.log(`Attempting to ${action} container: ${name}`);
             
             try {
-                let endpoint;
-                if (action === 'stop') {
-                    endpoint = `${serverUrl}/api/docker/stop/${name}`;
-                } else if (action === 'start') {
-                    endpoint = `${serverUrl}/api/docker/start/${name}`;
-                } else if (action === 'restart') {
-                    endpoint = `${serverUrl}/api/docker/restart/${name}`;
+                if (action === 'remove') {
+                    if (!confirm('Are you sure you want to remove this server? This action cannot be undone.')) {
+                        return;
+                    }
                 }
 
+                const endpoint = `${serverUrl}/api/docker/${action}/${name}`;
+                console.log('Calling endpoint:', endpoint);
+                
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
@@ -211,32 +216,16 @@
                     }
                 });
 
-                console.log('Response status:', response.status); // Debug log
-                
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Server error:', errorData); // Debug log
-                    throw new Error(errorData.error || `Failed to ${action} container`);
+                    const error = await response.json();
+                    throw new Error(error.error || `Failed to ${action} container`);
                 }
-                
-                // Refresh the containers list
+
                 await loadContainers();
-                
-                // Show success message
-                const toast = document.createElement('div');
-                toast.className = `toast toast-success`;
-                toast.textContent = `Server ${action}ed successfully`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-                
+                showToast(`Server ${action}d successfully`, 'success');
             } catch (error) {
                 console.error('Error:', error);
-                // Show error message
-                const toast = document.createElement('div');
-                toast.className = `toast toast-error`;
-                toast.textContent = error.message;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
+                showToast(error.message, 'error');
             }
         }
 
@@ -301,6 +290,15 @@
                 console.error('Error stopping server:', error);
                 showToast(error.message, 'error');
             }
+        }
+
+        // Add this function near the top of your script section
+        function showToast(message, type = 'error') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
     </script>
 
@@ -426,6 +424,36 @@
         .error-message i {
             font-size: 3rem;
             margin-bottom: 1rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            color: white;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast-success {
+            background-color: #10b981;
+        }
+
+        .toast-error {
+            background-color: #ef4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
     </style>
 </body>

@@ -1,0 +1,10 @@
+{
+  "users": [
+    {
+      "username": "IntiHost123",
+      "password": "intipintypoo",
+      "email": "intihost@example.com",
+      "isAdmin": true
+    }
+  ]
+}

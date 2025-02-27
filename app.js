@@ -5,10 +5,11 @@ import { dirname, join } from 'path';
 import cors from 'cors';
 import session from 'express-session';
 import fs from 'fs/promises';
-import Database from 'better-sqlite3';
 import multer from 'multer';
 import path from 'path';
 import { exec } from 'child_process';
+import { Low } from 'lowdb'
+import { JSONFile } from 'lowdb/node'
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -17,45 +18,8 @@ const __dirname = dirname(__filename);
 // Initialize Express and Docker
 const app = express();
 const docker = new Dockerode();
-const db = new Database('users.db');
-
-// Initialize database
-const initDb = db.prepare(`
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        email TEXT,
-        profile_image TEXT,
-        isAdmin BOOLEAN DEFAULT 0
-    )
-`);
-initDb.run();
-
-// Update or add IntiHost123 as admin
-const addAdminUser = db.prepare(`
-    INSERT OR REPLACE INTO users (username, password, email, isAdmin)
-    VALUES (?, ?, ?, 1)
-`);
-
-try {
-    addAdminUser.run('IntiHost123', 'intipintypoo', 'intihost@example.com');
-    console.log('Admin user IntiHost123 added successfully');
-} catch (error) {
-    console.error('Error adding admin user:', error);
-}
-
-// Add session middleware
-app.use(session({
-    secret: 'your-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: false, // set to true if using https
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-}));
+const dbFile = new JSONFile('db.json')
+const db = new Low(dbFile, { users: [] })
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -66,15 +30,236 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Updated CORS configuration
-app.use(cors({
-    origin: 'http://127.0.0.1:5500',  // or http://localhost:5500
-    credentials: true
-}));
-
+// 1. Essential middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+    origin: [
+        'http://127.0.0.1:5500',
+        'http://localhost:5500',
+        'http://192.168.0.110:5500',
+        'http://192.168.0.110:3000',
+        'http://192.168.0.110:80',
+        'http://192.168.0.110',
+        'http://83.191.172.196:5500',
+        'http://83.191.172.196:3000',
+        'http://83.191.172.196:80',
+        'http://83.191.172.196'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type']
+}));
+
+// Session middleware
+app.use(session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false,
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000
+    }
+}));
+
+// Move these middleware definitions to the top, after the initial setup but before routes
+// Updated Authentication middleware
+const requireAuth = (req, res, next) => {
+    if (!req.session.authenticated) {
+        return res.redirect('/login.html');
+    }
+    next();
+};
+
+// New Admin middleware
+const requireAdmin = (req, res, next) => {
+    if (!req.session.authenticated) {
+        return res.redirect('/login.html');
+    }
+    if (!req.session.isAdmin) {
+        return res.redirect('/dashboard.html');
+    }
+    next();
+};
+
+// 2. Create API Router
+const apiRouter = express.Router();
+
+// Docker container routes
+apiRouter.get('/docker/containers', (req, res) => {
+    exec('docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"', (error, stdout, stderr) => {
+        if (error) return res.status(500).json({ error: 'Failed to fetch containers' });
+        try {
+            if (!stdout.trim()) return res.json([]);
+            const containers = stdout.trim().split('\n').map(line => {
+                const [id, name, status, ports] = line.split('\t');
+                return { id, name, status, ports };
+            });
+            res.json(containers);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to parse Docker output' });
+        }
+    });
+});
+
+// Docker container management routes
+apiRouter.post('/docker/remove/:name', (req, res) => {
+    const { name } = req.params;
+    console.log('Removing container:', name);
+    
+    exec(`docker rm -f ${name}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error removing container:', error);
+            return res.status(500).json({ error: 'Failed to remove container' });
+        }
+        res.json({ message: 'Container removed successfully' });
+    });
+});
+
+apiRouter.post('/docker/stop/:name', (req, res) => {
+    const { name } = req.params;
+    exec(`docker stop ${name}`, (error, stdout, stderr) => {
+        if (error) return res.status(500).json({ error: 'Failed to stop container' });
+        res.json({ message: 'Container stopped successfully' });
+    });
+});
+
+apiRouter.post('/docker/start/:name', (req, res) => {
+    const { name } = req.params;
+    exec(`docker start ${name}`, (error, stdout, stderr) => {
+        if (error) return res.status(500).json({ error: 'Failed to start container' });
+        res.json({ message: 'Container started successfully' });
+    });
+});
+
+apiRouter.post('/docker/restart/:name', (req, res) => {
+    const { name } = req.params;
+    exec(`docker restart ${name}`, (error, stdout, stderr) => {
+        if (error) return res.status(500).json({ error: 'Failed to restart container' });
+        res.json({ message: 'Container restarted successfully' });
+    });
+});
+
+// Server management endpoints
+apiRouter.get('/servers', (req, res) => {
+    res.json(servers);
+});
+
+apiRouter.post('/servers', async (req, res) => {
+    console.log('Received request:', req.body);
+    
+    try {
+        const { name, type, port } = req.body;
+        
+        // Sanitize the server name
+        const sanitizedName = name.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        
+        console.log('Sanitized name:', sanitizedName);
+        
+        // First try to remove any existing container with the same name
+        try {
+            await new Promise((resolve) => {
+                exec(`docker rm -f ${sanitizedName}`, () => resolve());
+            });
+        } catch (error) {
+            console.log('No existing container to remove');
+        }
+
+        // Create the new container
+        const dockerCommand = `docker run -d --name ${sanitizedName} -p ${port}:25565 itzg/minecraft-server -e EULA=TRUE`;
+        
+        console.log('Executing Docker command:', dockerCommand);
+
+        const { stdout, stderr } = await new Promise((resolve, reject) => {
+            exec(dockerCommand, (error, stdout, stderr) => {
+                if (error) {
+                    console.error('Docker execution error:', error);
+                    console.error('stderr:', stderr);
+                    reject(new Error(stderr || error.message));
+                } else {
+                    resolve({ stdout, stderr });
+                }
+            });
+        });
+
+        // Create new server object
+        const newServer = {
+            id: Date.now().toString(),
+            name: sanitizedName,
+            type,
+            port: parseInt(port),
+            status: 'running',
+            containerId: stdout.trim(),
+            created: new Date().toISOString()
+        };
+
+        // Add to servers array
+        servers.push(newServer);
+        console.log('Server created:', newServer);
+
+        return res.status(201).json({
+            success: true,
+            message: 'Server created successfully',
+            server: newServer
+        });
+
+    } catch (error) {
+        console.error('Server creation error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create server: ' + error.message
+        });
+    }
+});
+
+apiRouter.get('/servers/stats', (req, res) => {
+    const activeServers = servers.filter(s => s.status === 'running').length;
+    res.json({
+        activeServers,
+        totalServers: servers.length
+    });
+});
+
+// User routes
+apiRouter.post('/user/profile-image', requireAuth, upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const imagePath = '/uploads/profile-images/' + req.file.filename;
+        
+        const userIndex = db.data.users.findIndex(u => u.username === req.session.username);
+        db.data.users[userIndex].profile_image = imagePath;
+        
+        await db.write();
+        
+        res.json({ 
+            success: true, 
+            message: 'Profile image updated',
+            imagePath: imagePath 
+        });
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        res.status(500).json({ message: 'Error uploading image' });
+    }
+});
+
+// 3. Mount API Router BEFORE static files
+app.use('/api', apiRouter);
+
+// 4. Static files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static('uploads'));
+
+// 5. Catch-all route
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Load users from file
 let users = [];
@@ -94,25 +279,6 @@ async function loadUsers() {
 
 // Load users on startup
 await loadUsers();
-
-// Updated Authentication middleware
-const requireAuth = (req, res, next) => {
-    if (!req.session.authenticated) {
-        return res.redirect('/login.html');
-    }
-    next();
-};
-
-// New Admin middleware
-const requireAdmin = (req, res, next) => {
-    if (!req.session.authenticated) {
-        return res.redirect('/login.html');
-    }
-    if (!req.session.isAdmin) {
-        return res.redirect('/dashboard.html');
-    }
-    next();
-};
 
 // Signup endpoint
 app.post('/signup', async (req, res) => {
@@ -167,24 +333,20 @@ app.post('/signup', async (req, res) => {
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        
         console.log('Login attempt:', { username, password });
 
         // Check for user in database
-        const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-        const user = stmt.get(username);
+        const user = db.data.users.find(u => u.username === username);
         
-        // Debug log to check user data
-        console.log('Found user:', { ...user, isAdmin: Boolean(user?.isAdmin) });
+        console.log('Found user:', user);
 
         if (user && user.password === password) {
             req.session.username = user.username;
-            req.session.isAdmin = Boolean(user.isAdmin);  // Ensure boolean conversion
+            req.session.isAdmin = Boolean(user.isAdmin);
             res.json({ 
                 success: true, 
-                isAdmin: Boolean(user.isAdmin),  // Ensure boolean conversion
-                message: 'Login successful',
-                debug: { isAdmin: Boolean(user.isAdmin) }  // Debug info
+                isAdmin: Boolean(user.isAdmin),
+                message: 'Login successful'
             });
         } else {
             console.log('Login failed - Invalid credentials');
@@ -234,8 +396,7 @@ app.get('/dashboard.html', requireAuth, (req, res) => {
 // Get user profile data
 app.get('/api/user/profile', requireAuth, async (req, res) => {
     try {
-        const stmt = db.prepare('SELECT username, email, profile_image FROM users WHERE username = ?');
-        const user = stmt.get(req.session.username);
+        const user = db.data.users.find(u => u.username === req.session.username);
         
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -257,29 +418,22 @@ app.post('/api/user/update', requireAuth, async (req, res) => {
     try {
         const { username, email, currentPassword, newPassword } = req.body;
         
-        // Verify current password
-        const stmt = db.prepare('SELECT password FROM users WHERE username = ?');
-        const user = stmt.get(req.session.username);
+        const userIndex = db.data.users.findIndex(u => u.username === req.session.username);
+        const user = db.data.users[userIndex];
         
         if (!user || user.password !== currentPassword) {
             return res.status(401).json({ message: 'Current password is incorrect' });
         }
         
         // Update user information
-        const updateStmt = db.prepare(`
-            UPDATE users 
-            SET username = ?, 
-                email = ?, 
-                password = ? 
-            WHERE username = ?
-        `);
+        db.data.users[userIndex] = {
+            ...user,
+            username: username || user.username,
+            email: email || user.email,
+            password: newPassword || currentPassword
+        };
         
-        updateStmt.run(
-            username || req.session.username,
-            email,
-            newPassword || currentPassword,
-            req.session.username
-        );
+        await db.write();
         
         // Update session if username changed
         if (username) {
@@ -300,108 +454,6 @@ app.post('/api/user/update', requireAuth, async (req, res) => {
     }
 });
 
-// Handle profile image upload
-app.post('/api/user/profile-image', requireAuth, upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ message: 'No file uploaded' });
-        }
-
-        const imagePath = '/uploads/profile-images/' + req.file.filename;
-        
-        // Update the user's profile_image in database
-        const stmt = db.prepare('UPDATE users SET profile_image = ? WHERE username = ?');
-        stmt.run(imagePath, req.session.username);
-        
-        res.json({ 
-            success: true, 
-            message: 'Profile image updated',
-            imagePath: imagePath 
-        });
-    } catch (error) {
-        console.error('Error uploading image:', error);
-        res.status(500).json({ message: 'Error uploading image' });
-    }
-});
-
-// Serve static files from public directory
-app.get('/', (req, res) => {
-    res.sendFile(join(__dirname, 'public', 'index.html'));
-});
-
-// Docker containers endpoint
-app.get('/api/docker/containers', (req, res) => {
-    exec('docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"', (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error fetching Docker containers:', error);
-            return res.status(500).json({ message: 'Failed to fetch Docker containers' });
-        }
-
-        try {
-            // Handle empty response
-            if (!stdout.trim()) {
-                return res.json([]);
-            }
-
-            // Parse the Docker output into objects
-            const containers = stdout.trim().split('\n').map(line => {
-                const [id, name, status, ports] = line.split('\t');
-                return {
-                    id: id || '',
-                    name: name || '',
-                    status: status || '',
-                    ports: ports || ''
-                };
-            });
-
-            console.log('Found containers:', containers); // Debug log
-            res.json(containers);
-        } catch (parseError) {
-            console.error('Error parsing Docker output:', parseError);
-            res.status(500).json({ message: 'Failed to parse Docker output' });
-        }
-    });
-});
-
-// Create server endpoint
-app.post('/create-server', async (req, res) => {
-    try {
-        const { serverName, serverType, maxPlayers, serverPort } = req.body;
-        
-        // Create container configuration
-        const containerConfig = {
-            Image: 'itzg/minecraft-server',
-            name: serverName,
-            Env: [
-                'EULA=TRUE',
-                `TYPE=${serverType}`,
-                `MAX_PLAYERS=${maxPlayers}`,
-                'MEMORY=2G'
-            ],
-            ExposedPorts: {
-                '25565/tcp': {}
-            },
-            HostConfig: {
-                PortBindings: {
-                    '25565/tcp': [{ HostPort: serverPort.toString() }]
-                }
-            }
-        };
-
-        // Create and start the container
-        const container = await docker.createContainer(containerConfig);
-        await container.start();
-
-        res.json({ success: true, message: 'Server created successfully' });
-    } catch (error) {
-        console.error('Error creating server:', error);
-        res.status(500).json({ error: 'Failed to create server' });
-    }
-});
-
-// Serve uploaded files statically
-app.use('/uploads', express.static('uploads'));
-
 // Add a session check endpoint
 app.get('/api/check-session', (req, res) => {
     if (req.session.username) {
@@ -420,8 +472,7 @@ app.get('/api/check-session', (req, res) => {
 // Add a debug endpoint to check users in database
 app.get('/api/debug/users', async (req, res) => {
     try {
-        const stmt = db.prepare('SELECT username, password FROM users');
-        const users = stmt.all();
+        const users = db.data.users;
         console.log('All users:', users);
         res.json({ users });
     } catch (error) {
@@ -445,80 +496,6 @@ app.get('/api/debug/user-status', (req, res) => {
 
 // Store servers in memory (or connect to your database if you have one)
 let servers = [];
-
-// Add these new routes for server management
-app.get('/api/servers', (req, res) => {
-    res.json(servers);
-});
-
-app.post('/api/servers', async (req, res) => {
-    console.log('Received request:', req.body); // Add logging
-    
-    try {
-        const { name, type, port } = req.body;
-        
-        // Validate required fields
-        if (!name || !type || !port) {
-            return res.status(400).json({
-                message: 'Server name, type, and port are required'
-            });
-        }
-
-        // Create new server object
-        const newServer = {
-            id: Date.now().toString(),
-            name,
-            type,
-            port: parseInt(port),
-            status: 'initializing',
-            created: new Date().toISOString()
-        };
-
-        // If it's a Minecraft server, run the Docker command
-        if (type === 'minecraft') {
-            const dockerCommand = `docker run -d --name ${name} -p ${port}:25565 -v /var/lib/docker/volumes/${name}/data -e EULA=TRUE itzg/minecraft-server`;
-
-            try {
-                const { stdout, stderr } = await new Promise((resolve, reject) => {
-                    exec(dockerCommand, (error, stdout, stderr) => {
-                        if (error) reject(error);
-                        else resolve({ stdout, stderr });
-                    });
-                });
-
-                newServer.containerId = stdout.trim();
-                newServer.status = 'running';
-                console.log('Docker container created:', newServer.containerId);
-            } catch (error) {
-                console.error('Docker error:', error);
-                return res.status(500).json({
-                    message: 'Failed to create Minecraft server: ' + error.message
-                });
-            }
-        }
-
-        // Add to servers array
-        servers.push(newServer);
-        console.log('Server created:', newServer);
-
-        // Return success response
-        return res.status(201).json(newServer);
-
-    } catch (error) {
-        console.error('Server creation error:', error);
-        return res.status(500).json({
-            message: 'Internal server error: ' + error.message
-        });
-    }
-});
-
-app.get('/api/servers/stats', (req, res) => {
-    const activeServers = servers.filter(s => s.status === 'running').length;
-    res.json({
-        activeServers,
-        totalServers: servers.length
-    });
-});
 
 // Add route to stop server
 app.post('/api/servers/:id/stop', (req, res) => {
@@ -578,378 +555,7 @@ app.post('/api/servers/:name/stop', (req, res) => {
     });
 });
 
-// Serve index.html for all other routes
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'servform.html'));
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        message: 'Something broke!',
-        error: err.message
-    });
-});
-
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log('Server is ready to accept requests');
-});
-
-// Add basic error handling
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err);
-});
-
-process.on('unhandledRejection', (err) => {
-    console.error('Unhandled Rejection:', err);
-});
-
-// Close database on exit
-process.on('exit', () => db.close());
-process.on('SIGHUP', () => process.exit(128 + 1));
-process.on('SIGINT', () => process.exit(128 + 2));
-process.on('SIGTERM', () => process.exit(128 + 15));
-
-// Add CORS middleware
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
-});
-
-// Add these new endpoints for bulk actions
-app.post('/api/docker/start-all', (req, res) => {
-    exec('docker start $(docker ps -a -q)', (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error starting all containers:', error);
-            return res.status(500).json({ message: 'Failed to start containers' });
-        }
-        res.json({ message: 'All containers started' });
-    });
-});
-
-app.post('/api/docker/stop-all', (req, res) => {
-    exec('docker stop $(docker ps -q)', (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error stopping all containers:', error);
-            return res.status(500).json({ message: 'Failed to stop containers' });
-        }
-        res.json({ message: 'All containers stopped' });
-    });
-});
-
-app.post('/api/docker/restart-all', (req, res) => {
-    exec('docker restart $(docker ps -a -q)', (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error restarting all containers:', error);
-            return res.status(500).json({ message: 'Failed to restart containers' });
-        }
-        res.json({ message: 'All containers restarted' });
-    });
-});
-
-// Server console endpoint
-app.get('/api/servers/:name/console', (req, res) => {
-    const { name } = req.params;
-    exec(`docker logs ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error fetching console output:', error);
-            return res.status(500).send('Failed to fetch console output');
-        }
-        res.send(stdout || stderr || 'No console output available');
-    });
-});
-
-// Server info endpoint
-app.get('/api/servers/:name/info', (req, res) => {
-    const { name } = req.params;
-    exec(`docker inspect ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error fetching server info:', error);
-            return res.status(500).json({ error: 'Failed to fetch server info' });
-        }
-        
-        try {
-            const data = JSON.parse(stdout)[0];
-            const state = data.State;
-            const status = state.Running ? 'Running' : 'Stopped';
-            const startTime = new Date(state.StartedAt);
-            const uptime = state.Running ? formatUptime(Date.now() - startTime) : 'Not running';
-            
-            res.json({ status, uptime });
-        } catch (error) {
-            console.error('Error parsing server info:', error);
-            res.status(500).json({ error: 'Failed to parse server info' });
-        }
-    });
-});
-
-// Server users endpoints
-app.get('/api/servers/:name/users', (req, res) => {
-    const { name } = req.params;
-    // Implement your user access logic here
-    // This is a placeholder that returns an empty array
-    res.json([]);
-});
-
-app.post('/api/servers/:name/users', (req, res) => {
-    const { name } = req.params;
-    const { username } = req.body;
-    // Implement your user access logic here
-    res.json({ message: 'User access added' });
-});
-
-app.delete('/api/servers/:name/users/:username', (req, res) => {
-    const { name, username } = req.params;
-    // Implement your user access logic here
-    res.json({ message: 'User access removed' });
-});
-
-// Helper function to format uptime
-function formatUptime(ms) {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
-}
-
-// Language settings endpoint
-app.post('/api/settings/language', (req, res) => {
-    const { language } = req.body;
-    
-    // Add your language setting logic here
-    // For example, save to user preferences in database
-    
-    res.json({ message: 'Language updated successfully' });
-});
-
-// Update Docker action endpoints
-app.post('/api/docker/stop/:name', (req, res) => {
-    const { name } = req.params;
-    console.log('Stopping container:', name); // Debug log
-    
-    exec(`docker stop ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error stopping container:', error);
-            console.error('stderr:', stderr);
-            return res.status(500).json({ error: 'Failed to stop container' });
-        }
-        console.log('Stop output:', stdout); // Debug log
-        res.json({ message: 'Container stopped successfully' });
-    });
-});
-
-app.post('/api/docker/start/:name', (req, res) => {
-    const { name } = req.params;
-    console.log('Starting container:', name); // Debug log
-    
-    exec(`docker start ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error starting container:', error);
-            console.error('stderr:', stderr);
-            return res.status(500).json({ error: 'Failed to start container' });
-        }
-        console.log('Start output:', stdout); // Debug log
-        res.json({ message: 'Container started successfully' });
-    });
-});
-
-app.post('/api/docker/restart/:name', (req, res) => {
-    const { name } = req.params;
-    console.log('Restarting container:', name); // Debug log
-    
-    exec(`docker restart ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error restarting container:', error);
-            console.error('stderr:', stderr);
-            return res.status(500).json({ error: 'Failed to restart container' });
-        }
-        console.log('Restart output:', stdout); // Debug log
-        res.json({ message: 'Container restarted successfully' });
-    });
-});
-
-// Update the container info endpoint
-app.get('/api/containers/:name/info', async (req, res) => {
-    const { name } = req.params;
-    console.log('Fetching info for container:', name);
-    
-    try {
-        const inspectCmd = await new Promise((resolve, reject) => {
-            exec(`docker inspect ${name}`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Docker inspect error:', error);
-                    reject(error);
-                    return;
-                }
-                resolve(stdout);
-            });
-        });
-        
-        const containerInfo = JSON.parse(inspectCmd)[0];
-        const state = containerInfo.State;
-        
-        const response = {
-            status: state.Running ? 'running' : 'stopped',
-            uptime: state.Running ? calculateUptime(state.StartedAt) : 'Not running'
-        };
-        
-        console.log('Sending response:', response);
-        res.json(response);
-        
-    } catch (error) {
-        console.error('Error getting container info:', error);
-        res.status(500).json({
-            status: 'unknown',
-            uptime: 'Unknown',
-            error: error.message
-        });
-    }
-});
-
-// Helper function to calculate uptime
-function calculateUptime(startTime) {
-    const started = new Date(startTime);
-    const now = new Date();
-    const uptimeMs = now - started;
-    
-    const seconds = Math.floor(uptimeMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
-}
-
-// Update the status endpoint to always return JSON
-app.get('/api/status/:name', (req, res) => {
-    // Set JSON content type
-    res.setHeader('Content-Type', 'application/json');
-    
-    const { name } = req.params;
-    console.log('Getting status for:', name);
-    
-    exec(`docker inspect ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Docker inspect error:', error);
-            return res.status(500).json({
-                status: 'unknown',
-                uptime: 'Unknown',
-                error: error.message
-            });
-        }
-        
-        try {
-            const data = JSON.parse(stdout)[0];
-            const state = data.State;
-            const running = state.Running;
-            
-            const response = {
-                status: running ? 'running' : 'stopped',
-                uptime: running ? getUptime(state.StartedAt) : 'Not running'
-            };
-            
-            console.log('Sending response:', response);
-            res.json(response);
-            
-        } catch (error) {
-            console.error('Error parsing docker inspect:', error);
-            res.status(500).json({
-                status: 'unknown',
-                uptime: 'Unknown',
-                error: 'Failed to parse container info'
-            });
-        }
-    });
-});
-
-// Keep the getUptime helper function as is
-
-// Update the Docker stats endpoint
-const apiRouter = express.Router();
-
-apiRouter.get('/docker/stats', async (req, res) => {
-    console.log('Stats endpoint hit at:', new Date().toISOString());  // Timestamp debug log
-    
-    // Set proper headers
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-cache');
-    
-    try {
-        // Test response
-        const testStats = {
-            timestamp: new Date().toISOString(),
-            activeContainers: 1,
-            totalContainers: 2,
-            cpuUsage: 5.5,
-            memoryUsage: 1024,
-            networkIO: 512,
-            containers: [
-                {
-                    name: "test-container",
-                    cpu: 5.5,
-                    memory: 1024
-                }
-            ],
-            statusCounts: {
-                running: 1,
-                stopped: 1,
-                other: 0
-            }
-        };
-
-        console.log('Sending response:', JSON.stringify(testStats, null, 2)); // Pretty print debug log
-        return res.status(200).json(testStats);
-        
-    } catch (error) {
-        console.error('Error in /api/docker/stats:', error);
-        return res.status(500).json({
-            error: 'Failed to get Docker statistics',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Add a test endpoint to verify API routing
-apiRouter.get('/test', (req, res) => {
-    res.json({ message: 'API is working', timestamp: new Date().toISOString() });
-});
-
-// Mount the API router BEFORE static files
-app.use('/api', apiRouter);
-
-// Serve static files after API routes
-app.use(express.static('public'));
-
-// Catch-all route handler
-app.get('*', (req, res) => {
-    if (req.path.startsWith('/api/')) {
-        res.status(404).json({ error: 'API endpoint not found' });
-    } else {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    }
-});
-
-// Error handler
+// 6. Error handler
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({
@@ -958,37 +564,11 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Add this with your other routes
-app.get('/api/server/stats', async (req, res) => {
-    try {
-        const stats = {
-            status: 'Online',
-            startTime: process.uptime() * 1000, // Convert to milliseconds
-            cpu: await getCPUUsage(),
-            memory: await getMemoryUsage()
-        };
-        res.json(stats);
-    } catch (error) {
-        console.error('Error getting server stats:', error);
-        res.status(500).json({ error: 'Failed to get server stats' });
-    }
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
-
-// Helper functions for getting system stats
-async function getCPUUsage() {
-    // This is a simple implementation. You might want to use a library like `os-utils` for more accurate readings
-    const startUsage = process.cpuUsage();
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const endUsage = process.cpuUsage(startUsage);
-    const totalUsage = (endUsage.user + endUsage.system) / 1000000; // Convert to seconds
-    return Math.round(totalUsage * 100);
-}
-
-async function getMemoryUsage() {
-    const used = process.memoryUsage().heapUsed;
-    const total = process.memoryUsage().heapTotal;
-    return Math.round((used / total) * 100);
-}
 
 export default app;
         
