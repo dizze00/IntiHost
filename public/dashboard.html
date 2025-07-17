@@ -4,105 +4,288 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IntiHost - User Dashboard</title>
-    <link rel="stylesheet" href="nstyle.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <!-- Account Section -->
-    <div class="account-section">
-        <div class="account-circle" onclick="window.location.href='settings.html'">
-            <i class="fas fa-user"></i>
+    <!-- Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fas fa-server"></i> IntiHost</h2>
         </div>
-    </div>
+        <div class="sidebar-menu">
+            <a href="dashboard.html" class="menu-item active">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="settings.html" class="menu-item">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+            <a href="login.html" class="menu-item">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </nav>
 
-    <div class="user-container">
-        <!-- Header -->
-        <div class="user-header">
-            <div>
-                <h1>Welcome to IntiHost</h1>
-                <p>Manage your servers</p>
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-header">
+            <h1><i class="fas fa-home"></i> Welcome to IntiHost</h1>
+            <p>Manage your Minecraft servers and monitor their performance</p>
+        </div>
+
+        <!-- User Profile Card -->
+        <div class="user-profile-card">
+            <div class="profile-info">
+                <div class="profile-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="profile-details">
+                    <h3 id="username">Loading...</h3>
+                    <p id="user-email">Loading...</p>
+                    <span class="user-status">
+                        <i class="fas fa-circle"></i> Online
+                    </span>
+                </div>
             </div>
-            <div>
-                <a href="create-server.html" class="button button-primary">
-                    <i class="fas fa-plus"></i> Create New Server
+            <div class="profile-actions">
+                <a href="settings.html" class="button button-secondary">
+                    <i class="fas fa-cog"></i> Settings
                 </a>
             </div>
         </div>
 
-        <!-- User Profile -->
-        <div class="user-profile">
-            <div class="profile-header">
-                <div class="profile-info">
-                    <h2 id="username">Loading...</h2>
-                    <p id="user-email">Loading...</p>
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="total-servers">0</h3>
+                    <p>Total Servers</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-play-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="running-servers">0</h3>
+                    <p>Running Servers</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="pending-requests">0</h3>
+                    <p>Pending Requests</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="total-players">0</h3>
+                    <p>Total Players</p>
                 </div>
             </div>
         </div>
 
-        <!-- Server List -->
-        <h2><i class="fas fa-server"></i> Your Servers</h2>
-        <div class="server-list" id="server-list">
-            <!-- Server cards will be dynamically added here -->
+        <!-- Quick Actions -->
+        <div class="quick-actions-section">
+            <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+            <div class="quick-actions-grid">
+                <a href="request-server.html" class="quick-action-card">
+                    <div class="action-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <h3>Request New Server</h3>
+                    <p>Submit a request for a new Minecraft server</p>
+                </a>
+                <a href="settings.html" class="quick-action-card">
+                    <div class="action-icon">
+                        <i class="fas fa-user-cog"></i>
+                    </div>
+                    <h3>Profile Settings</h3>
+                    <p>Update your profile and preferences</p>
+                </a>
+                <a href="#" class="quick-action-card" onclick="refreshDashboard()">
+                    <div class="action-icon">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                    <h3>Refresh Data</h3>
+                    <p>Update server statistics and status</p>
+                </a>
+            </div>
+        </div>
+
+        <!-- Your Servers Section -->
+        <div class="servers-section">
+            <div class="section-header">
+                <h2><i class="fas fa-server"></i> Your Servers</h2>
+                <div class="section-actions">
+                    <button onclick="refreshServers()" class="button button-secondary">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            
+            <div class="server-grid" id="server-grid">
+                <!-- Server cards will be dynamically added here -->
+                <div class="loading-card">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading your servers...</p>
+                </div>
+            </div>
+
+            <!-- No Servers Message -->
+            <div id="no-servers" class="no-servers" style="display: none;">
+                <div class="no-servers-content">
+                    <i class="fas fa-server"></i>
+                    <h3>No Servers Yet</h3>
+                    <p>You don't have any servers yet. Request your first server to get started!</p>
+                    <a href="request-server.html" class="button button-primary">
+                        <i class="fas fa-plus"></i> Request Your First Server
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="recent-activity-section">
+            <h2><i class="fas fa-clock"></i> Recent Activity</h2>
+            <div class="activity-list" id="activity-list">
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Loading recent activity...</div>
+                        <div class="activity-time">Please wait</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Add account.js before your existing scripts -->
-    <script src="js/account.js"></script>
     <script>
-        // Function to fetch and display user's servers
+        // Load user profile
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('/api/user/profile', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const user = await response.json();
+                    document.getElementById('username').textContent = user.username;
+                    document.getElementById('user-email').textContent = user.email;
+                } else {
+                    // If not logged in, redirect to login
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Load user servers
         async function loadUserServers() {
             try {
                 const response = await fetch('/api/user/servers', {
                     credentials: 'include'
                 });
-                const servers = await response.json();
                 
-                const serverList = document.getElementById('server-list');
-                serverList.innerHTML = ''; // Clear existing servers
-                
-                servers.forEach(server => {
-                    const serverCard = `
-                        <div class="server-card">
-                            <h3>${server.name}</h3>
-                            <div class="server-info">
-                                <p><strong>IP:</strong> ${server.ip}</p>
-                                <p><strong>Port:</strong> ${server.port}</p>
-                                <span class="server-status ${server.status === 'online' ? 'status-online' : 'status-offline'}">
-                                    ${server.status.toUpperCase()}
-                                </span>
-                            </div>
-                            <div style="margin-top: 15px;">
-                                <button onclick="controlServer('${server.id}', '${server.status === 'online' ? 'stop' : 'start'}')" 
-                                        class="button ${server.status === 'online' ? 'button-secondary' : 'button-primary'}">
-                                    <i class="fas fa-${server.status === 'online' ? 'stop' : 'play'}"></i>
-                                    ${server.status === 'online' ? 'Stop' : 'Start'}
-                                </button>
-                                <button onclick="deleteServer('${server.id}')" class="button button-secondary">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    serverList.innerHTML += serverCard;
-                });
-                
-                // If no servers, show message
-                if (servers.length === 0) {
-                    serverList.innerHTML = `
-                        <div style="text-align: center; padding: 40px;">
-                            <p>You don't have any servers yet.</p>
-                            <a href="create-server.html" class="button button-primary" style="margin-top: 20px;">
-                                <i class="fas fa-plus"></i> Create Your First Server
-                            </a>
-                        </div>
-                    `;
+                if (!response.ok) {
+                    throw new Error('Failed to fetch servers');
                 }
+                
+                const servers = await response.json();
+                displayServers(servers);
+                updateServerStats(servers);
             } catch (error) {
                 console.error('Error loading servers:', error);
+                showNoServers();
             }
         }
 
-        // Function to control server (start/stop)
+        // Display servers
+        function displayServers(servers) {
+            const serverGrid = document.getElementById('server-grid');
+            const noServers = document.getElementById('no-servers');
+            
+            if (servers.length === 0) {
+                serverGrid.innerHTML = '';
+                noServers.style.display = 'flex';
+                return;
+            }
+
+            noServers.style.display = 'none';
+            serverGrid.innerHTML = servers.map(server => `
+                <div class="server-card ${server.status === 'running' ? 'running' : 'stopped'}" onclick="navigateToServer('${server.id}')">
+                    <div class="server-header">
+                        <h3>${server.name}</h3>
+                        <span class="server-status ${server.status === 'running' ? 'status-running' : 'status-stopped'}">
+                            ${server.status === 'running' ? 'Running' : 'Stopped'}
+                        </span>
+                    </div>
+                    <div class="server-details">
+                        <div class="detail-item">
+                            <i class="fas fa-code-branch"></i>
+                            <span>Version: ${server.version || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-layer-group"></i>
+                            <span>Type: ${server.type || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-network-wired"></i>
+                            <span>Port: ${server.port || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>Created: ${new Date(server.createdAt).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                    <div class="server-actions" onclick="event.stopPropagation()">
+                        <button onclick="controlServer('${server.id}', '${server.status === 'running' ? 'stop' : 'start'}')" 
+                                class="button ${server.status === 'running' ? 'button-warning' : 'button-success'}">
+                            <i class="fas fa-${server.status === 'running' ? 'stop' : 'play'}"></i>
+                            ${server.status === 'running' ? 'Stop' : 'Start'}
+                        </button>
+                        <button onclick="deleteServer('${server.id}')" class="button button-danger">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update server statistics
+        function updateServerStats(servers) {
+            const totalServers = servers.length;
+            const runningServers = servers.filter(s => s.status === 'running').length;
+            
+            document.getElementById('total-servers').textContent = totalServers;
+            document.getElementById('running-servers').textContent = runningServers;
+        }
+
+        // Show no servers message
+        function showNoServers() {
+            const serverGrid = document.getElementById('server-grid');
+            const noServers = document.getElementById('no-servers');
+            
+            serverGrid.innerHTML = '';
+            noServers.style.display = 'flex';
+        }
+
+        // Control server (start/stop)
         async function controlServer(serverId, action) {
             try {
                 const response = await fetch(`/api/server/${serverId}/${action}`, {
@@ -111,56 +294,87 @@
                 });
                 
                 if (response.ok) {
+                    showToast(`Server ${action}ed successfully`, 'success');
                     loadUserServers(); // Refresh server list
                 } else {
-                    alert(`Failed to ${action} server`);
+                    const error = await response.json();
+                    showToast(error.error || `Failed to ${action} server`, 'error');
                 }
             } catch (error) {
                 console.error(`Error ${action}ing server:`, error);
-                alert(`Failed to ${action} server`);
+                showToast(`Failed to ${action} server`, 'error');
             }
         }
 
-        // Function to delete server
+        // Delete server
         async function deleteServer(serverId) {
-            if (confirm('Are you sure you want to delete this server? This action cannot be undone.')) {
-                try {
-                    const response = await fetch(`/api/server/${serverId}`, {
-                        method: 'DELETE',
-                        credentials: 'include'
-                    });
-                    
-                    if (response.ok) {
-                        loadUserServers(); // Refresh server list
-                    } else {
-                        alert('Failed to delete server');
-                    }
-                } catch (error) {
-                    console.error('Error deleting server:', error);
-                    alert('Failed to delete server');
-                }
+            if (!confirm('Are you sure you want to delete this server? This action cannot be undone.')) {
+                return;
             }
-        }
 
-        // Load servers when page loads
-        loadUserServers();
-
-        // Load user profile
-        async function loadUserProfile() {
             try {
-                const response = await fetch('/api/user/profile', {
+                const response = await fetch(`/api/server/${serverId}`, {
+                    method: 'DELETE',
                     credentials: 'include'
                 });
-                const user = await response.json();
                 
-                document.getElementById('username').textContent = user.username;
-                document.getElementById('user-email').textContent = user.email;
+                if (response.ok) {
+                    showToast('Server deleted successfully', 'success');
+                    loadUserServers(); // Refresh server list
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to delete server', 'error');
+                }
             } catch (error) {
-                console.error('Error loading profile:', error);
+                console.error('Error deleting server:', error);
+                showToast('Failed to delete server', 'error');
             }
         }
 
-        loadUserProfile();
+        // Navigate to server details
+        function navigateToServer(serverId) {
+            window.location.href = `server_details.html?id=${serverId}`;
+        }
+
+        // Refresh functions
+        function refreshDashboard() {
+            loadUserProfile();
+            loadUserServers();
+            showToast('Dashboard refreshed', 'success');
+        }
+
+        function refreshServers() {
+            loadUserServers();
+            showToast('Servers refreshed', 'success');
+        }
+
+        // Toast notification function
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUserProfile();
+            loadUserServers();
+        });
     </script>
 </body>
 </html> 

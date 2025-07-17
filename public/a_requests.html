@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - Server Requests</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fas fa-server"></i> IntiHost</h2>
+        </div>
+        <div class="sidebar-menu">
+            <a href="a_dashboard.html" class="menu-item">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="a_servers.html" class="menu-item">
+                <i class="fas fa-server"></i>
+                <span>Servers</span>
+            </a>
+            <a href="a_requests.html" class="menu-item active">
+                <i class="fas fa-clipboard-list"></i>
+                <span>Requests</span>
+            </a>
+            <a href="a_users.html" class="menu-item">
+                <i class="fas fa-users"></i>
+                <span>Users</span>
+            </a>
+            <a href="a_statistics.html" class="menu-item">
+                <i class="fas fa-chart-bar"></i>
+                <span>Statistics</span>
+            </a>
+            <a href="a_backups.html" class="menu-item">
+                <i class="fas fa-database"></i>
+                <span>Backups</span>
+            </a>
+            <a href="login.html" class="menu-item">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-header">
+            <h1><i class="fas fa-clipboard-list"></i> Server Requests</h1>
+            <p>Review and manage server creation requests from users</p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="pending-requests">0</h3>
+                    <p>Pending Requests</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="approved-requests">0</h3>
+                    <p>Approved Today</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="rejected-requests">0</h3>
+                    <p>Rejected Today</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search requests by username or server name...">
+        </div>
+
+        <!-- Requests Grid -->
+        <div class="requests-grid" id="requests-grid">
+            <!-- Request cards will be dynamically added here -->
+        </div>
+
+        <!-- No Requests Message -->
+        <div id="no-requests" class="no-requests" style="display: none;">
+            <div class="no-requests-content">
+                <i class="fas fa-clipboard-check"></i>
+                <h3>No Pending Requests</h3>
+                <p>All server requests have been processed!</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script>
+        // Load requests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRequests();
+        });
+
+        // Function to load server requests
+        async function loadRequests() {
+            try {
+                const response = await fetch('/api/server-requests');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch requests');
+                }
+                const requests = await response.json();
+                displayRequests(requests);
+                updateRequestStats(requests);
+            } catch (error) {
+                console.error('Error loading requests:', error);
+                showToast('Error loading requests', 'error');
+            }
+        }
+
+        // Function to display requests
+        function displayRequests(requests) {
+            const requestsGrid = document.getElementById('requests-grid');
+            const noRequests = document.getElementById('no-requests');
+            
+            if (requests.length === 0) {
+                requestsGrid.innerHTML = '';
+                noRequests.style.display = 'flex';
+                return;
+            }
+
+            noRequests.style.display = 'none';
+            requestsGrid.innerHTML = '';
+
+            requests.forEach(request => {
+                const requestCard = `
+                    <div class="request-card" data-id="${request.id}">
+                        <div class="request-header">
+                            <h3>${request.serverName}</h3>
+                            <span class="request-status pending">Pending</span>
+                        </div>
+                        <div class="request-details">
+                            <div class="detail-item">
+                                <i class="fas fa-user"></i>
+                                <span><strong>Requested by:</strong> ${request.requestedBy}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-code-branch"></i>
+                                <span><strong>Version:</strong> ${request.serverVersion}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-layer-group"></i>
+                                <span><strong>Type:</strong> ${request.serverType}</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-calendar"></i>
+                                <span><strong>Requested:</strong> ${new Date(request.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            ${request.description ? `
+                            <div class="detail-item">
+                                <i class="fas fa-align-left"></i>
+                                <span><strong>Description:</strong> ${request.description}</span>
+                            </div>
+                            ` : ''}
+                            ${request.additionalUsers && request.additionalUsers.length > 0 ? `
+                            <div class="detail-item">
+                                <i class="fas fa-users"></i>
+                                <span><strong>Additional Users:</strong> ${request.additionalUsers.join(', ')}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                        <div class="request-actions">
+                            <button onclick="approveRequest('${request.id}')" class="button button-success">
+                                <i class="fas fa-check"></i> Approve
+                            </button>
+                            <button onclick="rejectRequest('${request.id}')" class="button button-danger">
+                                <i class="fas fa-times"></i> Reject
+                            </button>
+                        </div>
+                    </div>
+                `;
+                requestsGrid.innerHTML += requestCard;
+            });
+        }
+
+        // Function to update request statistics
+        function updateRequestStats(requests) {
+            const pending = requests.filter(r => r.status === 'pending').length;
+            const approved = requests.filter(r => r.status === 'approved' && 
+                new Date(r.updatedAt).toDateString() === new Date().toDateString()).length;
+            const rejected = requests.filter(r => r.status === 'rejected' && 
+                new Date(r.updatedAt).toDateString() === new Date().toDateString()).length;
+
+            document.getElementById('pending-requests').textContent = pending;
+            document.getElementById('approved-requests').textContent = approved;
+            document.getElementById('rejected-requests').textContent = rejected;
+        }
+
+        // Function to approve request
+        async function approveRequest(requestId) {
+            if (!confirm('Are you sure you want to approve this server request?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/server-requests/${requestId}/approve`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    showToast('Request approved successfully!', 'success');
+                    loadRequests(); // Refresh the list
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to approve request', 'error');
+                }
+            } catch (error) {
+                console.error('Error approving request:', error);
+                showToast('Failed to approve request', 'error');
+            }
+        }
+
+        // Function to reject request
+        async function rejectRequest(requestId) {
+            const reason = prompt('Please provide a reason for rejection (optional):');
+            
+            try {
+                const response = await fetch(`/api/server-requests/${requestId}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ reason })
+                });
+
+                if (response.ok) {
+                    showToast('Request rejected successfully!', 'success');
+                    loadRequests(); // Refresh the list
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to reject request', 'error');
+                }
+            } catch (error) {
+                console.error('Error rejecting request:', error);
+                showToast('Failed to reject request', 'error');
+            }
+        }
+
+        // Search functionality
+        document.querySelector('.search-bar input').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const requestCards = document.querySelectorAll('.request-card');
+            
+            requestCards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(searchTerm) ? 'block' : 'none';
+            });
+        });
+    </script>
+</body>
+</html> 

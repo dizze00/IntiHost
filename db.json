@@ -5,6 +5,12 @@
       "password": "intipintypoo",
       "email": "intihost@example.com",
       "isAdmin": true
+    },
+    {
+      "username": "Dizze_kisse",
+      "email": "froxxzo.studio.gaming@gmail.com",
+      "password": "intipintypoo",
+      "isAdmin": false
     }
   ]
 }

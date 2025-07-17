@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - Request New Server</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fas fa-server"></i> IntiHost</h2>
+        </div>
+        <div class="sidebar-menu">
+            <a href="dashboard.html" class="menu-item">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="settings.html" class="menu-item">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+            <a href="login.html" class="menu-item">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-header">
+            <h1><i class="fas fa-plus-circle"></i> Request New Server</h1>
+            <p>Submit a request for a new Minecraft server. Admins will review and approve your request.</p>
+        </div>
+
+        <div class="request-form-container">
+            <form id="server-request-form" class="request-form">
+                <div class="form-group">
+                    <label for="server-name">
+                        <i class="fas fa-server"></i> Server Name
+                    </label>
+                    <input type="text" id="server-name" name="serverName" required 
+                           placeholder="Enter server name (e.g., MyMinecraftServer)">
+                </div>
+
+                <div class="form-group">
+                    <label for="server-version">
+                        <i class="fas fa-code-branch"></i> Minecraft Version
+                    </label>
+                    <select id="server-version" name="serverVersion" required>
+                        <option value="">Select version</option>
+                        <option value="1.20.4">1.20.4 (Latest)</option>
+                        <option value="1.20.3">1.20.3</option>
+                        <option value="1.20.2">1.20.2</option>
+                        <option value="1.20.1">1.20.1</option>
+                        <option value="1.20">1.20</option>
+                        <option value="1.19.4">1.19.4</option>
+                        <option value="1.19.3">1.19.3</option>
+                        <option value="1.19.2">1.19.2</option>
+                        <option value="1.19.1">1.19.1</option>
+                        <option value="1.19">1.19</option>
+                        <option value="1.18.2">1.18.2</option>
+                        <option value="1.18.1">1.18.1</option>
+                        <option value="1.18">1.18</option>
+                        <option value="1.17.1">1.17.1</option>
+                        <option value="1.17">1.17</option>
+                        <option value="1.16.5">1.16.5</option>
+                        <option value="1.16.4">1.16.4</option>
+                        <option value="1.16.3">1.16.3</option>
+                        <option value="1.16.2">1.16.2</option>
+                        <option value="1.16.1">1.16.1</option>
+                        <option value="1.16">1.16</option>
+                        <option value="1.15.2">1.15.2</option>
+                        <option value="1.15.1">1.15.1</option>
+                        <option value="1.15">1.15</option>
+                        <option value="1.14.4">1.14.4</option>
+                        <option value="1.14.3">1.14.3</option>
+                        <option value="1.14.2">1.14.2</option>
+                        <option value="1.14.1">1.14.1</option>
+                        <option value="1.14">1.14</option>
+                        <option value="1.13.2">1.13.2</option>
+                        <option value="1.13.1">1.13.1</option>
+                        <option value="1.13">1.13</option>
+                        <option value="1.12.2">1.12.2</option>
+                        <option value="1.12.1">1.12.1</option>
+                        <option value="1.12">1.12</option>
+                        <option value="1.11.2">1.11.2</option>
+                        <option value="1.11.1">1.11.1</option>
+                        <option value="1.11">1.11</option>
+                        <option value="1.10.2">1.10.2</option>
+                        <option value="1.10.1">1.10.1</option>
+                        <option value="1.10">1.10</option>
+                        <option value="1.9.4">1.9.4</option>
+                        <option value="1.9.3">1.9.3</option>
+                        <option value="1.9.2">1.9.2</option>
+                        <option value="1.9.1">1.9.1</option>
+                        <option value="1.9">1.9</option>
+                        <option value="1.8.9">1.8.9</option>
+                        <option value="1.8.8">1.8.8</option>
+                        <option value="1.8.7">1.8.7</option>
+                        <option value="1.8.6">1.8.6</option>
+                        <option value="1.8.5">1.8.5</option>
+                        <option value="1.8.4">1.8.4</option>
+                        <option value="1.8.3">1.8.3</option>
+                        <option value="1.8.2">1.8.2</option>
+                        <option value="1.8.1">1.8.1</option>
+                        <option value="1.8">1.8</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="server-type">
+                        <i class="fas fa-layer-group"></i> Server Type
+                    </label>
+                    <select id="server-type" name="serverType" required>
+                        <option value="">Select type</option>
+                        <option value="vanilla">Vanilla</option>
+                        <option value="paper">Paper (Recommended)</option>
+                        <option value="spigot">Spigot</option>
+                        <option value="forge">Forge</option>
+                        <option value="fabric">Fabric</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="server-description">
+                        <i class="fas fa-align-left"></i> Description
+                    </label>
+                    <textarea id="server-description" name="description" rows="4" 
+                              placeholder="Describe your server's purpose, features, or any special requirements..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="additional-users">
+                        <i class="fas fa-users"></i> Additional Users (Optional)
+                    </label>
+                    <input type="text" id="additional-users" name="additionalUsers" 
+                           placeholder="Enter usernames separated by commas (e.g., user1, user2, user3)">
+                    <small>These users will have access to your server once approved</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="window.location.href='dashboard.html'" class="button button-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="button button-primary">
+                        <i class="fas fa-paper-plane"></i> Submit Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('server-request-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const requestData = {
+                serverName: formData.get('serverName'),
+                serverVersion: formData.get('serverVersion'),
+                serverType: formData.get('serverType'),
+                description: formData.get('description'),
+                additionalUsers: formData.get('additionalUsers').split(',').map(u => u.trim()).filter(u => u)
+            };
+
+            try {
+                const response = await fetch('/api/server-requests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(requestData)
+                });
+
+                if (response.ok) {
+                    showToast('Server request submitted successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 2000);
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Failed to submit request', 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting request:', error);
+                showToast('Failed to submit request', 'error');
+            }
+        });
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html> 

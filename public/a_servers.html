@@ -24,6 +24,10 @@
                     <i class="fas fa-server"></i>
                     <span>Servers</span>
                 </a>
+                <a href="a_requests.html" class="menu-item">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Requests</span>
+                </a>
                 <a href="a_users.html" class="menu-item">
                     <i class="fas fa-users"></i>
                     <span>Users</span>
@@ -71,7 +75,7 @@
     <script>
         // Get the server URL dynamically
         const serverUrl = window.location.port === '5500' 
-            ? 'http://localhost:8080' 
+            ? 'http://localhost:5005' 
             : '';
 
         async function loadContainers() {
@@ -109,6 +113,7 @@
                             <p><strong>ID:</strong> ${container.id.substring(0, 12)}</p>
                             <p><strong>Ports:</strong> ${container.ports || 'None'}</p>
                             <p><strong>Status:</strong> ${container.status}</p>
+                            <p><strong>Created by:</strong> ${container.createdBy || 'Unknown'}</p>
                         </div>
                         <div class="container-actions" onclick="event.stopPropagation()">
                             <button onclick="handleContainer('${container.name}', 'start')" 
@@ -129,7 +134,12 @@
                             <button onclick="handleContainer('${container.name}', 'remove')" 
                                     class="button button-danger">
                                 <i class="fas fa-trash"></i>
-                                Remove
+                                Delete
+                            </button>
+                            <button onclick="copyServerIP('${container.name}', '${container.ports}')" 
+                                    class="button button-secondary">
+                                <i class="fas fa-copy"></i>
+                                Copy IP
                             </button>
                             <a href="server_details.html?name=${container.name}" 
                                class="button button-info">
@@ -299,6 +309,45 @@
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
         }
+
+        async function copyServerIP(serverName, ports) {
+            try {
+                // Extract the port from the ports string (format: "25565->25565/tcp")
+                const portMatch = ports.match(/(\d+)->\d+\/tcp/);
+                if (!portMatch) {
+                    showToast('No valid port found for this server', 'error');
+                    return;
+                }
+                
+                const port = portMatch[1];
+                
+                // Check if custom IP is configured for this server
+                const ipType = localStorage.getItem(`${serverName}_ipType`) || 'default';
+                let serverIP;
+                
+                if (ipType === 'custom') {
+                    serverIP = localStorage.getItem(`${serverName}_customIp`) || 'localhost';
+                } else {
+                    // Get the actual server IP from the backend
+                    const response = await fetch(`${serverUrl}/api/server/ip`);
+                    if (!response.ok) {
+                        throw new Error('Failed to get server IP');
+                    }
+                    
+                    const data = await response.json();
+                    serverIP = data.ip;
+                }
+                
+                const serverAddress = `${serverIP}:${port}`;
+                
+                // Copy to clipboard
+                await navigator.clipboard.writeText(serverAddress);
+                showToast(`Server IP copied: ${serverAddress}`, 'success');
+            } catch (error) {
+                console.error('Error copying IP:', error);
+                showToast('Failed to copy server IP', 'error');
+            }
+        }
     </script>
 
     <style>
@@ -308,138 +357,251 @@
 
         .containers-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
             margin-top: 1rem;
         }
 
         .container-card {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s ease;
             cursor: pointer;
             position: relative;
+            overflow: hidden;
+        }
+
+        .container-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .container-card:hover::before {
+            transform: scaleX(1);
         }
 
         .container-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-heavy);
+            background: var(--bg-card);
         }
 
-        .container-card::after {
-            content: 'Click to view details';
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            font-size: 0.75rem;
-            color: #6b7280;
-            opacity: 0;
-            transition: opacity 0.2s ease;
+        .container-card.running::before {
+            background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
         }
 
-        .container-card:hover::after {
-            opacity: 1;
+        .container-card.stopped::before {
+            background: linear-gradient(135deg, var(--danger-color) 0%, #dc2626 100%);
         }
 
-        .container-card.running {
-            border-left: 4px solid #10b981;
-        }
-
-        .container-card.stopped {
-            border-left: 4px solid #ef4444;
-        }
-
-        .container-card.other {
-            border-left: 4px solid #f59e0b;
+        .container-card.other::before {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #d97706 100%);
         }
 
         .container-header {
             display: flex;
             justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+
+        .server-info h3 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .server-type {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            display: flex;
             align-items: center;
-            margin-bottom: 1rem;
+            gap: 0.5rem;
+        }
+
+        .server-type i {
+            color: var(--primary-color);
         }
 
         .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.875rem;
-            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .running .status-badge {
-            background: #d1fae5;
-            color: #065f46;
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border-color: rgba(16, 185, 129, 0.3);
         }
 
         .stopped .status-badge {
-            background: #fee2e2;
-            color: #991b1b;
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
         }
 
         .other .status-badge {
-            background: #fef3c7;
-            color: #92400e;
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border-color: rgba(245, 158, 11, 0.3);
         }
 
         .container-details {
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
         }
 
         .container-details p {
             margin: 0.5rem 0;
-            font-size: 0.875rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .container-details p strong {
+            color: var(--text-primary);
+            font-weight: 600;
         }
 
         .container-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .container-actions .button {
+            flex: 1;
+            min-width: 100px;
+            padding: 0.75rem 0.5rem;
+            font-size: 0.8rem;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+            text-align: center;
             display: flex;
+            align-items: center;
+            justify-content: center;
             gap: 0.5rem;
-            flex-wrap: wrap;
+        }
+
+        .container-actions .button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .container-actions .button:hover::before {
+            left: 100%;
         }
 
         .button-success {
-            background-color: #10b981;
+            background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
 
         .button-warning {
-            background-color: #f59e0b;
+            background: linear-gradient(135deg, var(--warning-color) 0%, #d97706 100%);
+            border: 1px solid rgba(245, 158, 11, 0.3);
         }
 
         .button-danger {
-            background-color: #ef4444;
+            background: linear-gradient(135deg, var(--danger-color) 0%, #dc2626 100%);
+            border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        .button i {
-            margin-right: 0.5rem;
+        .button-info {
+            background: linear-gradient(135deg, var(--info-color) 0%, #2563eb 100%);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .button-secondary {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, #6b46c1 100%);
+            border: 1px solid rgba(118, 75, 162, 0.3);
         }
 
         .no-servers {
             grid-column: 1 / -1;
             text-align: center;
-            padding: 3rem;
-            background: white;
-            border-radius: 0.5rem;
+            padding: 4rem 2rem;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-secondary);
         }
 
         .no-servers i {
-            font-size: 3rem;
-            color: #6b7280;
+            font-size: 4rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            opacity: 0.5;
+        }
+
+        .no-servers h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
             margin-bottom: 1rem;
+        }
+
+        .no-servers p {
+            font-size: 1rem;
+            margin-bottom: 2rem;
         }
 
         .error-message {
             grid-column: 1 / -1;
             text-align: center;
-            padding: 3rem;
-            background: #fee2e2;
-            border-radius: 0.5rem;
-            color: #991b1b;
+            padding: 4rem 2rem;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 20px;
+            color: #ef4444;
         }
 
         .error-message i {
-            font-size: 3rem;
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            opacity: 0.7;
+        }
+
+        .error-message h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
             margin-bottom: 1rem;
         }
 
@@ -470,6 +632,31 @@
             to {
                 transform: translateX(0);
                 opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .containers-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .container-actions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .container-actions .button {
+                min-width: 80px;
+                font-size: 0.75rem;
+                padding: 0.6rem 0.4rem;
+            }
+
+            .container-card {
+                padding: 1.5rem;
+            }
+
+            .server-info h3 {
+                font-size: 1.2rem;
             }
         }
     </style>

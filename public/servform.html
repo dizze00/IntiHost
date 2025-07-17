@@ -169,7 +169,7 @@
                     
                     <div class="form-actions">
                         <button type="submit" class="button button-primary">Create Server</button>
-                        <a href="a_servers.html" class="button button-outline">Cancel</a>
+                        <a href="a_servers.html" class="button button-secondary">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -257,7 +257,7 @@
             }
 
             try {
-                const response = await fetch('http://localhost:8080/api/servers', {
+                const response = await fetch('http://localhost:5005/api/servers', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

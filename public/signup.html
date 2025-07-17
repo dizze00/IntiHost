@@ -84,7 +84,7 @@
                 submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
                 submitButton.disabled = true;
 
-                const response = await fetch('http://localhost:8080/signup', {
+                const response = await fetch('http://localhost:5005/signup', {
                     method: 'POST',
                     credentials: 'include',
                     headers: {

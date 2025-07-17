@@ -65,7 +65,8 @@ app.use(cors({
         'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:3002',
-        'http://localhost:8080',
+        'http://localhost:5004',
+        'http://localhost:5005',
         'http://192.168.0.110:5500',
         'http://192.168.0.110:3000',
         'http://192.168.0.110:80',
@@ -104,9 +105,15 @@ const requireAuth = (req, res, next) => {
 // New Admin middleware
 const requireAdmin = (req, res, next) => {
     if (!req.session.authenticated) {
+        if (req.path.startsWith('/api/')) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
         return res.redirect('/login.html');
     }
     if (!req.session.isAdmin) {
+        if (req.path.startsWith('/api/')) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
         return res.redirect('/dashboard.html');
     }
     next();
@@ -114,6 +121,12 @@ const requireAdmin = (req, res, next) => {
 
 // 2. Create API Router
 const apiRouter = express.Router();
+
+// Test endpoint
+apiRouter.get('/test', (req, res) => {
+    console.log('Test endpoint called');
+    res.json({ message: 'API is working!', timestamp: new Date().toISOString() });
+});
 
 // Docker container routes
 apiRouter.get('/docker/containers', (req, res) => {
@@ -125,7 +138,23 @@ apiRouter.get('/docker/containers', (req, res) => {
                 const [id, name, status, ports] = line.split('\t');
                 return { id, name, status, ports };
             });
-            res.json(containers);
+
+            // Get server information from database to add creator info
+            const dbServers = db.data.servers || [];
+            
+            // Merge Docker container data with database server data
+            const enrichedContainers = containers.map(container => {
+                const dbServer = dbServers.find(server => server.name === container.name);
+                return {
+                    ...container,
+                    createdBy: dbServer ? dbServer.createdBy : 'Unknown',
+                    description: dbServer ? dbServer.description : '',
+                    version: dbServer ? dbServer.version : 'Unknown',
+                    type: dbServer ? dbServer.type : 'Unknown'
+                };
+            });
+
+            res.json(enrichedContainers);
         } catch (error) {
             res.status(500).json({ error: 'Failed to parse Docker output' });
         }
@@ -179,6 +208,89 @@ apiRouter.post('/docker/restart/:name', (req, res) => {
         trackActivity('server_restarted', `Server "${name}" restarted`, { serverName: name });
         
         res.json({ message: 'Container restarted successfully' });
+    });
+});
+
+// Get server IP address endpoint
+apiRouter.get('/server/ip', (req, res) => {
+    exec('hostname -I', (error, stdout, stderr) => {
+        if (error) {
+            // Fallback to localhost if hostname command fails
+            return res.json({ ip: 'localhost' });
+        }
+        
+        // Get the first IP address (usually the primary one)
+        const ips = stdout.trim().split(' ').filter(ip => ip.trim());
+        const primaryIP = ips[0] || 'localhost';
+        
+        res.json({ ip: primaryIP });
+    });
+});
+
+// Docker statistics endpoint
+apiRouter.get('/docker/stats', (req, res) => {
+    console.log('Docker stats endpoint called');
+    exec('docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}"', (error, stdout, stderr) => {
+        if (error) {
+            console.error('Error fetching Docker stats:', error);
+            return res.status(500).json({ error: 'Failed to fetch Docker statistics' });
+        }
+        
+        try {
+            const lines = stdout.trim().split('\n').filter(line => line.trim());
+            if (lines.length <= 1) {
+                // No containers running
+                return res.json({
+                    activeContainers: 0,
+                    totalContainers: 0,
+                    cpuUsage: 0,
+                    memoryUsage: 0,
+                    networkIO: 0,
+                    containers: []
+                });
+            }
+            
+            // Skip header line and parse container stats
+            const containers = lines.slice(1).map(line => {
+                const [container, cpu, memory, netIO] = line.split('\t');
+                return {
+                    container: container.trim(),
+                    cpu: parseFloat(cpu.replace('%', '')) || 0,
+                    memory: memory.trim(),
+                    netIO: netIO.trim()
+                };
+            });
+            
+            // Calculate totals
+            const totalContainers = containers.length;
+            const activeContainers = containers.length; // All containers in stats are running
+            const totalCPU = containers.reduce((sum, c) => sum + c.cpu, 0);
+            
+            // Parse memory usage (format: "1.234MiB / 2.000GiB")
+            const totalMemory = containers.reduce((sum, c) => {
+                const memMatch = c.memory.match(/(\d+\.?\d*)/);
+                return sum + (memMatch ? parseFloat(memMatch[1]) : 0);
+            }, 0);
+            
+            // Parse network I/O (format: "1.23kB / 4.56MB")
+            const totalNetwork = containers.reduce((sum, c) => {
+                const netMatch = c.netIO.match(/(\d+\.?\d*)/);
+                return sum + (netMatch ? parseFloat(netMatch[1]) : 0);
+            }, 0);
+            
+            res.json({
+                activeContainers,
+                totalContainers,
+                cpuUsage: totalCPU,
+                memoryUsage: totalMemory,
+                networkIO: totalNetwork,
+                containers
+            });
+            
+        } catch (parseError) {
+            console.error('Error parsing Docker stats:', parseError);
+            res.status(500).json({ error: 'Failed to parse Docker statistics' });
+        }
     });
 });
 
@@ -290,31 +402,132 @@ apiRouter.get('/servers/stats', (req, res) => {
 // Dashboard statistics endpoint
 apiRouter.get('/dashboard/stats', async (req, res) => {
     try {
-        // Get server statistics
-        const activeServers = servers.filter(s => s.status === 'running').length;
-        const totalServers = servers.length;
+        console.log('Dashboard stats endpoint called');
+        
+        // Get real Docker container statistics
+        const dockerStats = await new Promise((resolve, reject) => {
+            exec('docker ps -a --format "{{.Names}}\t{{.Status}}"', (error, stdout, stderr) => {
+                if (error) {
+                    console.log('Docker command failed, using fallback:', error.message);
+                    resolve({ containers: [], activeContainers: 0, totalContainers: 0 });
+                    return;
+                }
+                
+                console.log('Docker ps -a output:', stdout);
+                
+                try {
+                    const lines = stdout.trim().split('\n').filter(line => line.trim());
+                    console.log('Parsed lines:', lines);
+                    
+                    const containers = lines.map(line => {
+                        const [name, status] = line.split('\t');
+                        return { name: name.trim(), status: status.trim() };
+                    });
+                    
+                    console.log('Parsed containers:', containers);
+                    
+                    const activeContainers = containers.filter(c => 
+                        c.status.includes('Up') || c.status.includes('running')
+                    ).length;
+                    
+                    const result = {
+                        containers,
+                        activeContainers,
+                        totalContainers: containers.length
+                    };
+                    
+                    console.log('Docker stats result:', result);
+                    resolve(result);
+                } catch (parseError) {
+                    console.log('Error parsing Docker output:', parseError);
+                    resolve({ containers: [], activeContainers: 0, totalContainers: 0 });
+                }
+            });
+        });
+        
+        // Also check local servers array as fallback
+        console.log('Local servers array:', servers);
+        const localActiveServers = servers.filter(s => s.status === 'running').length;
+        const localTotalServers = servers.length;
+        
+        // Use Docker stats if available, otherwise fall back to local array
+        const finalActiveServers = dockerStats.totalContainers > 0 ? dockerStats.activeContainers : localActiveServers;
+        const finalTotalServers = dockerStats.totalContainers > 0 ? dockerStats.totalContainers : localTotalServers;
+        
+        // Get real system load using CPU usage
+        const systemLoad = await new Promise((resolve) => {
+            exec('wmic cpu get loadpercentage /value', (error, stdout, stderr) => {
+                if (error) {
+                    console.log('CPU load command failed, using fallback');
+                    resolve(25); // Fallback value
+                    return;
+                }
+                
+                try {
+                    const match = stdout.match(/LoadPercentage=(\d+)/);
+                    const load = match ? parseInt(match[1]) : 25;
+                    resolve(load);
+                } catch (parseError) {
+                    console.log('Error parsing CPU load:', parseError);
+                    resolve(25);
+                }
+            });
+        });
         
         // Get user statistics
         const totalUsers = db.data.users.length;
         
-        // Get system load (simulated for now)
-        const systemLoad = Math.floor(Math.random() * 30) + 20; // 20-50% range
-        
         // Get recent activity
         const recentActivity = await getRecentActivity();
         
-        res.json({
-            activeServers,
-            totalServers,
+        // Format recent activity for frontend
+        const formattedActivity = recentActivity.map(activity => {
+            const timeAgo = getTimeAgo(new Date(activity.timestamp));
+            let icon = 'fas fa-info-circle';
+            let title = activity.message;
+            
+            // Set appropriate icons based on activity type
+            if (activity.type === 'server_created') icon = 'fas fa-plus-circle';
+            else if (activity.type === 'server_started') icon = 'fas fa-play-circle';
+            else if (activity.type === 'server_stopped') icon = 'fas fa-stop-circle';
+            else if (activity.type === 'server_restarted') icon = 'fas fa-redo';
+            
+            return {
+                icon,
+                title,
+                timeAgo,
+                type: activity.type,
+                timestamp: activity.timestamp
+            };
+        });
+        
+        const stats = {
+            activeServers: finalActiveServers,
+            totalServers: finalTotalServers,
             totalUsers,
             systemLoad: `${systemLoad}%`,
-            recentActivity
-        });
+            recentActivity: formattedActivity
+        };
+        
+        console.log('Dashboard stats:', stats);
+        res.json(stats);
+        
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
     }
 });
+
+// Helper function to format time ago
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+}
 
 
 
@@ -448,6 +661,14 @@ app.get('*', (req, res) => {
 await db.read();
 console.log('Loaded users from database:', db.data.users);
 
+// Add initial activity if none exists
+if (activities.length === 0) {
+    trackActivity('system_started', 'IntiHost system started', { timestamp: new Date().toISOString() });
+    trackActivity('user_login', 'Admin user logged in', { username: 'IntiHost123' });
+}
+
+
+
 // Signup endpoint
 app.post('/signup', async (req, res) => {
     console.log('Received signup request:', req.body);
@@ -518,6 +739,13 @@ app.post('/api/login', async (req, res) => {
         if (user && user.password === password) {
             req.session.username = user.username;
             req.session.isAdmin = Boolean(user.isAdmin);
+            
+            // Track login activity
+            trackActivity('user_login', `User "${user.username}" logged in`, { 
+                username: user.username,
+                isAdmin: Boolean(user.isAdmin)
+            });
+            
             res.json({ 
                 success: true, 
                 isAdmin: Boolean(user.isAdmin),
@@ -541,11 +769,19 @@ app.post('/api/login', async (req, res) => {
 
 // Logout endpoint
 app.post('/api/logout', (req, res) => {
+    const username = req.session.username;
+    
     req.session.destroy((err) => {
         if (err) {
             console.error('Logout error:', err);
             return res.status(500).json({ message: 'Error during logout' });
         }
+        
+        // Track logout activity
+        if (username) {
+            trackActivity('user_logout', `User "${username}" logged out`, { username });
+        }
+        
         res.json({ success: true, message: 'Logged out successfully' });
     });
 });
@@ -585,6 +821,20 @@ app.get('/api/user/profile', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching profile:', error);
         res.status(500).json({ message: 'Error fetching profile data' });
+    }
+});
+
+// Get user servers
+app.get('/api/user/servers', requireAuth, async (req, res) => {
+    try {
+        const userServers = db.data.servers ? db.data.servers.filter(server => 
+            server.users && server.users.includes(req.session.username)
+        ) : [];
+        
+        res.json(userServers);
+    } catch (error) {
+        console.error('Error fetching user servers:', error);
+        res.status(500).json({ error: 'Error fetching user servers' });
     }
 });
 
@@ -669,64 +919,264 @@ app.get('/api/debug/user-status', (req, res) => {
     }
 });
 
+// Debug endpoint to check servers array
+app.get('/api/debug/servers', (req, res) => {
+    res.json({
+        servers: servers,
+        totalServers: servers.length,
+        activeServers: servers.filter(s => s.status === 'running').length
+    });
+});
 
+// Test endpoint to check if user management endpoints are accessible
+app.get('/api/test-users', (req, res) => {
+    res.json({
+        message: 'User management endpoints are accessible',
+        session: {
+            authenticated: req.session.authenticated,
+            username: req.session.username,
+            isAdmin: req.session.isAdmin
+        },
+        timestamp: new Date().toISOString()
+    });
+});
 
-// Add route to stop server
-app.post('/api/servers/:id/stop', (req, res) => {
+// Server Request System API Endpoints
+app.post('/api/server-requests', async (req, res) => {
     try {
-        const server = servers.find(s => s.id === req.params.id);
-        if (!server) {
-            return res.status(404).json({ message: 'Server not found' });
+        if (!req.session.authenticated) {
+            return res.status(401).json({ error: 'Not authenticated' });
         }
 
-        if (server.type === 'minecraft' && server.containerId) {
-            exec(`docker stop ${server.name}`, (error) => {
-                if (error) {
-                    console.error('Error stopping Docker container:', error);
-                    return res.status(500).json({
-                        message: 'Failed to stop Minecraft server'
-                    });
-                }
-                server.status = 'stopped';
-                res.json({ message: 'Server stopped successfully' });
-            });
-        } else {
-            server.status = 'stopped';
-            res.json({ message: 'Server stopped successfully' });
+        const { serverName, serverVersion, serverType, description, additionalUsers } = req.body;
+        
+        // Validate required fields
+        if (!serverName || !serverVersion || !serverType) {
+            return res.status(400).json({ error: 'Missing required fields' });
         }
+
+        // Create new request
+        const newRequest = {
+            id: Date.now().toString(),
+            serverName,
+            serverVersion,
+            serverType,
+            description: description || '',
+            additionalUsers: additionalUsers || [],
+            requestedBy: req.session.username,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        // Add to database
+        if (!db.data.serverRequests) {
+            db.data.serverRequests = [];
+        }
+        db.data.serverRequests.push(newRequest);
+        await db.write();
+
+        res.status(201).json(newRequest);
     } catch (error) {
-        console.error('Error stopping server:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('Error creating server request:', error);
+        res.status(500).json({ error: 'Error creating server request' });
     }
 });
 
-// Server start endpoint
-app.post('/api/servers/:name/start', (req, res) => {
-    const { name } = req.params;
-    
-    exec(`docker start ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error starting server:', error);
-            return res.status(500).json({ error: 'Failed to start server' });
-        }
-        res.json({ message: 'Server started successfully' });
-    });
+app.get('/api/server-requests', requireAdmin, async (req, res) => {
+    try {
+        const requests = db.data.serverRequests || [];
+        res.json(requests);
+    } catch (error) {
+        console.error('Error fetching server requests:', error);
+        res.status(500).json({ error: 'Error fetching server requests' });
+    }
 });
 
-// Server stop endpoint
-app.post('/api/servers/:name/stop', (req, res) => {
-    const { name } = req.params;
-    console.log('Received stop request for server:', name); // Debug log
-    
-    exec(`docker stop ${name}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error stopping server:', error);
-            console.error('stderr:', stderr); // Debug log
-            return res.status(500).json({ error: 'Failed to stop server', details: error.message });
+app.post('/api/server-requests/:id/approve', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const requests = db.data.serverRequests || [];
+        const requestIndex = requests.findIndex(r => r.id === id);
+        
+        if (requestIndex === -1) {
+            return res.status(404).json({ error: 'Request not found' });
         }
-        console.log('Server stopped successfully:', stdout); // Debug log
-        res.json({ message: 'Server stopped successfully' });
-    });
+
+        const request = requests[requestIndex];
+        request.status = 'approved';
+        request.updatedAt = new Date().toISOString();
+        request.approvedBy = req.session.username;
+
+        // Create the actual server
+        const newServer = {
+            id: Date.now().toString(),
+            name: request.serverName,
+            version: request.serverVersion,
+            type: request.serverType,
+            description: request.description,
+            createdBy: request.requestedBy,
+            users: [request.requestedBy, ...request.additionalUsers],
+            status: 'stopped',
+            port: Math.floor(Math.random() * 10000) + 25565, // Random port
+            createdAt: new Date().toISOString()
+        };
+
+        // Add server to database
+        if (!db.data.servers) {
+            db.data.servers = [];
+        }
+        db.data.servers.push(newServer);
+
+        // Update request
+        requests[requestIndex] = request;
+        db.data.serverRequests = requests;
+        await db.write();
+
+        res.json({ message: 'Request approved and server created', server: newServer });
+    } catch (error) {
+        console.error('Error approving request:', error);
+        res.status(500).json({ error: 'Error approving request' });
+    }
+});
+
+app.post('/api/server-requests/:id/reject', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+        const requests = db.data.serverRequests || [];
+        const requestIndex = requests.findIndex(r => r.id === id);
+        
+        if (requestIndex === -1) {
+            return res.status(404).json({ error: 'Request not found' });
+        }
+
+        const request = requests[requestIndex];
+        request.status = 'rejected';
+        request.updatedAt = new Date().toISOString();
+        request.rejectedBy = req.session.username;
+        request.rejectionReason = reason || '';
+
+        requests[requestIndex] = request;
+        db.data.serverRequests = requests;
+        await db.write();
+
+        res.json({ message: 'Request rejected' });
+    } catch (error) {
+        console.error('Error rejecting request:', error);
+        res.status(500).json({ error: 'Error rejecting request' });
+    }
+});
+
+// User Management API Endpoints
+app.get('/api/users', requireAdmin, async (req, res) => {
+    try {
+        const users = db.data.users.map(user => ({
+            username: user.username,
+            email: user.email,
+            isAdmin: user.isAdmin || false,
+            status: 'active', // You can add more status logic here
+            createdAt: user.createdAt || new Date().toISOString()
+        }));
+        res.json(users);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: 'Error fetching users' });
+    }
+});
+
+app.post('/api/users', requireAdmin, async (req, res) => {
+    try {
+        const { username, email, password, isAdmin } = req.body;
+        // Validate required fields
+        if (!username || !email || !password) {
+            return res.status(400).json({ error: 'Username, email, and password are required' });
+        }
+        // Check if user already exists
+        if (db.data.users.some(user => user.username === username)) {
+            return res.status(400).json({ error: 'Username already exists' });
+        }
+        if (db.data.users.some(user => user.email === email)) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+        // Create new user
+        const newUser = {
+            username,
+            email,
+            password,
+            isAdmin: isAdmin || false,
+            createdAt: new Date().toISOString()
+        };
+        db.data.users.push(newUser);
+        await db.write();
+        res.json({ 
+            success: true, 
+            message: 'User created successfully',
+            user: {
+                username: newUser.username,
+                email: newUser.email,
+                isAdmin: newUser.isAdmin,
+                status: 'active',
+                createdAt: newUser.createdAt
+            }
+        });
+    } catch (error) {
+        console.error('Error creating user:', error);
+        res.status(500).json({ error: 'Error creating user' });
+    }
+});
+
+app.put('/api/users/:username', requireAdmin, async (req, res) => {
+    try {
+        const { username } = req.params;
+        const { email, isAdmin, password } = req.body;
+        const userIndex = db.data.users.findIndex(u => u.username === username);
+        if (userIndex === -1) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const user = db.data.users[userIndex];
+        // Update user fields
+        if (email) user.email = email;
+        if (typeof isAdmin === 'boolean') user.isAdmin = isAdmin;
+        if (password) user.password = password;
+        await db.write();
+        res.json({ 
+            success: true, 
+            message: 'User updated successfully',
+            user: {
+                username: user.username,
+                email: user.email,
+                isAdmin: user.isAdmin,
+                status: 'active',
+                createdAt: user.createdAt
+            }
+        });
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ error: 'Error updating user' });
+    }
+});
+
+app.delete('/api/users/:username', requireAdmin, async (req, res) => {
+    try {
+        const { username } = req.params;
+        // Prevent deleting the last admin user
+        const adminUsers = db.data.users.filter(u => u.isAdmin);
+        const userToDelete = db.data.users.find(u => u.username === username);
+        if (adminUsers.length === 1 && userToDelete && userToDelete.isAdmin) {
+            return res.status(400).json({ error: 'Cannot delete the last admin user' });
+        }
+        const userIndex = db.data.users.findIndex(u => u.username === username);
+        if (userIndex === -1) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        db.data.users.splice(userIndex, 1);
+        await db.write();
+        res.json({ success: true, message: 'User deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ error: 'Error deleting user' });
+    }
 });
 
 // 6. Error handler
@@ -739,7 +1189,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5005;
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });

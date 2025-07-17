@@ -4,45 +4,52 @@ async function updateServerStatus() {
         const response = await fetch('/api/docker/containers');
         const containers = await response.json();
         
-        // Update total servers count
-        const totalServers = containers.length;
-        const activeServers = containers.filter(container => container.State === 'running').length;
-        document.getElementById('total-servers').textContent = `${activeServers}/${totalServers}`;
-        
-        // Update progress bar
-        const progressPercentage = (activeServers / totalServers) * 100;
-        document.querySelector('.progress-fill').style.width = `${progressPercentage}%`;
-        
-        // Update server grid
+        // Only update if we're on a page with server elements
+        const totalServersElement = document.getElementById('total-servers');
+        const progressFillElement = document.querySelector('.progress-fill');
         const serverGrid = document.querySelector('.server-grid');
-        serverGrid.innerHTML = ''; // Clear existing servers
         
-        // Add a random active container to display
-        const activeContainer = containers.filter(container => container.State === 'running')[0];
-        if (activeContainer) {
-            const serverCard = `
-                <div class="server-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>${activeContainer.Names[0].replace('/', '')}</h3>
-                        <span class="status-badge status-online">Online</span>
+        if (totalServersElement) {
+            const totalServers = containers.length;
+            const activeServers = containers.filter(container => container.State === 'running').length;
+            totalServersElement.textContent = `${activeServers}/${totalServers}`;
+        }
+        
+        if (progressFillElement) {
+            const totalServers = containers.length;
+            const activeServers = containers.filter(container => container.State === 'running').length;
+            const progressPercentage = totalServers > 0 ? (activeServers / totalServers) * 100 : 0;
+            progressFillElement.style.width = `${progressPercentage}%`;
+        }
+        
+        if (serverGrid) {
+            serverGrid.innerHTML = ''; // Clear existing servers
+            
+            // Add a random active container to display
+            const activeContainer = containers.filter(container => container.State === 'running')[0];
+            if (activeContainer) {
+                const serverCard = `
+                    <div class="server-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3>${activeContainer.Names[0].replace('/', '')}</h3>
+                            <span class="status-badge status-online">Online</span>
+                        </div>
+                        <p>Container ID: ${activeContainer.Id.slice(0, 12)}</p>
+                        <p>IP: ${activeContainer.NetworkSettings.IPAddress}</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100%;"></div>
+                        </div>
                     </div>
-                    <p>Container ID: ${activeContainer.Id.slice(0, 12)}</p>
-                    <p>IP: ${activeContainer.NetworkSettings.IPAddress}</p>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: 100%;"></div>
-                    </div>
-                </div>
-            `;
-            serverGrid.innerHTML = serverCard;
+                `;
+                serverGrid.innerHTML = serverCard;
+            }
         }
     } catch (error) {
         console.error('Error fetching Docker data:', error);
     }
 }
 
-// Update status every 30 seconds
-updateServerStatus();
-setInterval(updateServerStatus, 30000);
+// Server status updates are now handled in the DOMContentLoaded event
 
 // Server management functions
 async function loadServers() {
@@ -115,14 +122,218 @@ async function restartServer(serverId) {
     }
 }
 
+// User Management Functions
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/users');
+        if (!response.ok) {
+            throw new Error('Failed to fetch users');
+        }
+        const users = await response.json();
+        displayUsers(users);
+        updateUserStats(users);
+    } catch (error) {
+        console.error('Error loading users:', error);
+        showToast('Error loading users', 'error');
+    }
+}
+
+function displayUsers(users) {
+    const tableBody = document.getElementById('users-table-body');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    users.forEach(user => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${user.username}</td>
+            <td>${user.email}</td>
+            <td>
+                <span class="role-badge ${user.isAdmin ? 'admin' : 'user'}">
+                    ${user.isAdmin ? 'Admin' : 'User'}
+                </span>
+            </td>
+            <td>
+                <span class="status-badge active">${user.status}</span>
+            </td>
+            <td>
+                <div class="action-buttons">
+                    <button class="button button-small" onclick="editUser('${user.username}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="button button-small button-danger" onclick="deleteUser('${user.username}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+function updateUserStats(users) {
+    const totalUsers = users.length;
+    const activeUsers = users.filter(user => user.status === 'active').length;
+    
+    const totalUsersElement = document.getElementById('total-users');
+    const activeUsersElement = document.getElementById('active-users');
+    
+    if (totalUsersElement) totalUsersElement.textContent = totalUsers;
+    if (activeUsersElement) activeUsersElement.textContent = activeUsers;
+}
+
+function addUser() {
+    const username = prompt('Enter username:');
+    if (!username) return;
+    
+    const email = prompt('Enter email:');
+    if (!email) return;
+    
+    const password = prompt('Enter password:');
+    if (!password) return;
+    
+    const isAdmin = confirm('Make this user an admin?');
+    
+    createUser({ username, email, password, isAdmin });
+}
+
+async function createUser(userData) {
+    try {
+        const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(userData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create user');
+        }
+        
+        const result = await response.json();
+        showToast('User created successfully', 'success');
+        loadUsers(); // Refresh the user list
+    } catch (error) {
+        console.error('Error creating user:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function editUser(username) {
+    const newEmail = prompt('Enter new email (leave empty to keep current):');
+    if (newEmail === null) return; // User cancelled
+    
+    const isAdmin = confirm('Make this user an admin?');
+    
+    try {
+        const response = await fetch(`/api/users/${username}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: newEmail || undefined,
+                isAdmin
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update user');
+        }
+        
+        showToast('User updated successfully', 'success');
+        loadUsers(); // Refresh the user list
+    } catch (error) {
+        console.error('Error updating user:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteUser(username) {
+    if (!confirm(`Are you sure you want to delete user "${username}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/users/${username}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete user');
+        }
+        
+        showToast('User deleted successfully', 'success');
+        loadUsers(); // Refresh the user list
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+// Toast notification function
+function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    // Add to page
+    document.body.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => toast.classList.add('show'), 100);
+    
+    // Remove toast after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
+}
+
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    loadServers();
-    // Set up search functionality
-    const searchInput = document.querySelector('.search-bar input');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            // Implement search functionality here
-        });
+    if (window.location.pathname.includes('a_users.html')) {
+        loadUsers();
+        // Set up search functionality for users page
+        const searchInput = document.querySelector('.search-bar input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const rows = document.querySelectorAll('#users-table-body tr');
+                rows.forEach(row => {
+                    const username = row.cells[0].textContent.toLowerCase();
+                    const email = row.cells[1].textContent.toLowerCase();
+                    const role = row.cells[2].textContent.toLowerCase();
+                    if (username.includes(searchTerm) || email.includes(searchTerm) || role.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+    } else {
+        // Only run Docker/server code on non-users pages
+        updateServerStatus();
+        setInterval(updateServerStatus, 30000);
+        loadServers();
+        // Set up search functionality for servers page
+        const searchInput = document.querySelector('.search-bar input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                // Implement search functionality here
+            });
+        }
     }
 }); 

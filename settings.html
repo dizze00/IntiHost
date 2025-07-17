@@ -10,7 +10,7 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
     };
 
     try {
-        const response = await fetch('http://localhost:8080/api/user/update', {
+        const response = await fetch('http://localhost:5005/api/user/update', {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -37,7 +37,7 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
 // Load user data function
 async function loadUserData() {
     try {
-        const response = await fetch('http://localhost:8080/api/user/profile', {
+        const response = await fetch('http://localhost:5005/api/user/profile', {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -57,7 +57,7 @@ async function loadUserData() {
         
         // Update profile image if exists
         if (userData.profileImage) {
-            document.getElementById('profileImage').src = `http://localhost:8080${userData.profileImage}`;
+            document.getElementById('profileImage').src = `http://localhost:5005${userData.profileImage}`;
         }
     } catch (error) {
         console.error('Error loading user data:', error);
@@ -73,7 +73,7 @@ document.getElementById('imageUpload').addEventListener('change', async function
     formData.append('image', file);
 
     try {
-        const response = await fetch('http://localhost:8080/api/user/profile-image', {
+        const response = await fetch('http://localhost:5005/api/user/profile-image', {
             method: 'POST',
             credentials: 'include',
             body: formData
@@ -84,7 +84,7 @@ document.getElementById('imageUpload').addEventListener('change', async function
         }
 
         const data = await response.json();
-        document.getElementById('profileImage').src = `http://localhost:8080${data.imagePath}`;
+        document.getElementById('profileImage').src = `http://localhost:5005${data.imagePath}`;
         alert('Profile image updated successfully!');
     } catch (error) {
         console.error('Error uploading image:', error);
