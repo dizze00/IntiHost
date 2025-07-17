@@ -21,6 +21,31 @@ const docker = new Dockerode();
 const dbFile = new JSONFile('db.json')
 const db = new Low(dbFile, { users: [] })
 
+// Global variables for tracking
+const servers = [];
+const activities = [];
+
+// Activity tracking functions
+const trackActivity = (type, message, data = {}) => {
+    const activity = {
+        id: Date.now(),
+        type,
+        message,
+        data,
+        timestamp: new Date().toISOString()
+    };
+    activities.unshift(activity); // Add to beginning
+    
+    // Keep only last 50 activities
+    if (activities.length > 50) {
+        activities.splice(50);
+    }
+};
+
+const getRecentActivity = async () => {
+    return activities.slice(0, 10); // Return last 10 activities
+};
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: 'uploads/profile-images/',
@@ -37,6 +62,10 @@ app.use(cors({
     origin: [
         'http://127.0.0.1:5500',
         'http://localhost:5500',
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'http://localhost:8080',
         'http://192.168.0.110:5500',
         'http://192.168.0.110:3000',
         'http://192.168.0.110:80',
@@ -121,6 +150,10 @@ apiRouter.post('/docker/stop/:name', (req, res) => {
     const { name } = req.params;
     exec(`docker stop ${name}`, (error, stdout, stderr) => {
         if (error) return res.status(500).json({ error: 'Failed to stop container' });
+        
+        // Track activity
+        trackActivity('server_stopped', `Server "${name}" stopped`, { serverName: name });
+        
         res.json({ message: 'Container stopped successfully' });
     });
 });
@@ -129,6 +162,10 @@ apiRouter.post('/docker/start/:name', (req, res) => {
     const { name } = req.params;
     exec(`docker start ${name}`, (error, stdout, stderr) => {
         if (error) return res.status(500).json({ error: 'Failed to start container' });
+        
+        // Track activity
+        trackActivity('server_started', `Server "${name}" started`, { serverName: name });
+        
         res.json({ message: 'Container started successfully' });
     });
 });
@@ -137,6 +174,10 @@ apiRouter.post('/docker/restart/:name', (req, res) => {
     const { name } = req.params;
     exec(`docker restart ${name}`, (error, stdout, stderr) => {
         if (error) return res.status(500).json({ error: 'Failed to restart container' });
+        
+        // Track activity
+        trackActivity('server_restarted', `Server "${name}" restarted`, { serverName: name });
+        
         res.json({ message: 'Container restarted successfully' });
     });
 });
@@ -150,12 +191,13 @@ apiRouter.post('/servers', async (req, res) => {
     console.log('Received request:', req.body);
     
     try {
-        const { name, type, port } = req.body;
+        const { name, type, port, version } = req.body;
         
         // Sanitize the server name
         const sanitizedName = name.toLowerCase().replace(/[^a-z0-9-]/g, '');
         
         console.log('Sanitized name:', sanitizedName);
+        console.log('Version:', version);
         
         // First try to remove any existing container with the same name
         try {
@@ -166,8 +208,24 @@ apiRouter.post('/servers', async (req, res) => {
             console.log('No existing container to remove');
         }
 
+        // Pull the latest image first
+        console.log('Pulling latest minecraft-server image...');
+        try {
+            await new Promise((resolve, reject) => {
+                exec('docker pull itzg/minecraft-server:latest', (error, stdout, stderr) => {
+                    if (error) {
+                        console.log('Image pull warning:', error.message);
+                    }
+                    resolve();
+                });
+            });
+        } catch (error) {
+            console.log('Image pull failed, continuing with existing image');
+        }
+
         // Create the new container
-        const dockerCommand = `docker run -d --name ${sanitizedName} -p ${port}:25565 itzg/minecraft-server -e EULA=TRUE`;
+        const versionEnv = version ? `-e VERSION=${version} ` : '';
+        const dockerCommand = `docker run -d --name ${sanitizedName} -p ${port}:25565 -e EULA=TRUE -e MEMORY=1G -e TYPE=VANILLA ${versionEnv}itzg/minecraft-server:latest`;
         
         console.log('Executing Docker command:', dockerCommand);
 
@@ -189,6 +247,7 @@ apiRouter.post('/servers', async (req, res) => {
             name: sanitizedName,
             type,
             port: parseInt(port),
+            version: version || 'LATEST',
             status: 'running',
             containerId: stdout.trim(),
             created: new Date().toISOString()
@@ -197,6 +256,13 @@ apiRouter.post('/servers', async (req, res) => {
         // Add to servers array
         servers.push(newServer);
         console.log('Server created:', newServer);
+        
+        // Track activity for dashboard
+        trackActivity('server_created', `Server "${sanitizedName}" created successfully`, {
+            serverName: sanitizedName,
+            serverType: type,
+            version: version || 'LATEST'
+        });
 
         return res.status(201).json({
             success: true,
@@ -219,6 +285,123 @@ apiRouter.get('/servers/stats', (req, res) => {
         activeServers,
         totalServers: servers.length
     });
+});
+
+// Dashboard statistics endpoint
+apiRouter.get('/dashboard/stats', async (req, res) => {
+    try {
+        // Get server statistics
+        const activeServers = servers.filter(s => s.status === 'running').length;
+        const totalServers = servers.length;
+        
+        // Get user statistics
+        const totalUsers = db.data.users.length;
+        
+        // Get system load (simulated for now)
+        const systemLoad = Math.floor(Math.random() * 30) + 20; // 20-50% range
+        
+        // Get recent activity
+        const recentActivity = await getRecentActivity();
+        
+        res.json({
+            activeServers,
+            totalServers,
+            totalUsers,
+            systemLoad: `${systemLoad}%`,
+            recentActivity
+        });
+    } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
+    }
+});
+
+
+
+// Server details endpoints
+apiRouter.get('/servers/:name/console', (req, res) => {
+    const { name } = req.params;
+    exec(`docker logs ${name} --tail 50`, (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: 'Failed to fetch console logs' });
+        }
+        res.send(stdout || 'No console output available');
+    });
+});
+
+apiRouter.post('/servers/:name/command', (req, res) => {
+    const { name } = req.params;
+    const { command } = req.body;
+    
+    if (!command) {
+        return res.status(400).json({ error: 'Command is required' });
+    }
+    
+    exec(`docker exec ${name} ${command}`, (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: 'Failed to execute command' });
+        }
+        res.json({ output: stdout, error: stderr });
+    });
+});
+
+apiRouter.get('/servers/:name/files', (req, res) => {
+    const { name } = req.params;
+    exec(`docker exec ${name} ls -la /data`, (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: 'Failed to fetch files' });
+        }
+        
+        // Parse the ls output to create a file list
+        const lines = stdout.split('\n').filter(line => line.trim());
+        const files = lines.slice(1).map(line => {
+            const parts = line.split(/\s+/);
+            if (parts.length >= 9) {
+                const permissions = parts[0];
+                const isDirectory = permissions.startsWith('d');
+                const fileName = parts.slice(8).join(' ');
+                return {
+                    name: fileName,
+                    type: isDirectory ? 'directory' : 'file',
+                    size: parts[4],
+                    modified: `${parts[5]} ${parts[6]} ${parts[7]}`
+                };
+            }
+            return null;
+        }).filter(file => file && file.name !== '.' && file.name !== '..');
+        
+        res.json(files);
+    });
+});
+
+apiRouter.get('/servers/:name/logs', (req, res) => {
+    const { name } = req.params;
+    exec(`docker logs ${name} --tail 100`, (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: 'Failed to fetch logs' });
+        }
+        res.send(stdout || 'No logs available');
+    });
+});
+
+apiRouter.get('/servers/:name/users', (req, res) => {
+    // For now, return an empty array - you can implement user management later
+    res.json([]);
+});
+
+apiRouter.post('/servers/:name/users', (req, res) => {
+    // For now, just return success - you can implement user management later
+    res.json({ success: true, message: 'User access added' });
+});
+
+apiRouter.delete('/servers/:name/users/:username', (req, res) => {
+    // For now, just return success - you can implement user management later
+    res.json({ success: true, message: 'User access removed' });
+});
+
+apiRouter.post('/servers/:name/files/upload', (req, res) => {
+    // For now, just return success - you can implement file upload later
+    res.json({ success: true, message: 'File uploaded successfully' });
 });
 
 // User routes
@@ -261,24 +444,9 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Load users from file
-let users = [];
-const USERS_FILE = 'users.json';
-
-// Load users function
-async function loadUsers() {
-    try {
-        const data = await fs.readFile(USERS_FILE, 'utf8');
-        users = JSON.parse(data);
-        console.log('Loaded users:', users); // Debug log
-    } catch (error) {
-        console.log('No existing users file, starting with empty user list');
-        users = [];
-    }
-}
-
-// Load users on startup
-await loadUsers();
+// Load users from database
+await db.read();
+console.log('Loaded users from database:', db.data.users);
 
 // Signup endpoint
 app.post('/signup', async (req, res) => {
@@ -293,14 +461,14 @@ app.post('/signup', async (req, res) => {
         });
     }
     
-    if (users.some(user => user.username === username)) {
+    if (db.data.users.some(user => user.username === username)) {
         return res.status(400).json({
             success: false,
             message: 'Username already exists'
         });
     }
     
-    if (users.some(user => user.email === email)) {
+    if (db.data.users.some(user => user.email === email)) {
         return res.status(400).json({
             success: false,
             message: 'Email already exists'
@@ -314,11 +482,18 @@ app.post('/signup', async (req, res) => {
         isAdmin: false
     };
     
-    users.push(newUser);
+    db.data.users.push(newUser);
     
     try {
-        await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
-        console.log('Updated users list:', users); // Debug log
+        await db.write();
+        console.log('Updated users list:', db.data.users); // Debug log
+        
+        // Track activity for dashboard
+        trackActivity('user_registered', `User "${username}" registered successfully`, {
+            username: username,
+            email: email
+        });
+        
         res.json({ success: true, message: 'Account created successfully' });
     } catch (error) {
         console.error('Error saving user:', error);
@@ -494,8 +669,7 @@ app.get('/api/debug/user-status', (req, res) => {
     }
 });
 
-// Store servers in memory (or connect to your database if you have one)
-let servers = [];
+
 
 // Add route to stop server
 app.post('/api/servers/:id/stop', (req, res) => {
@@ -565,7 +739,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });

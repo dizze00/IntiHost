@@ -57,11 +57,96 @@
                 <form id="serverForm" onsubmit="handleSubmit(event)">
                     <div class="form-group">
                         <label for="serverType">Server Type</label>
-                        <select id="serverType" name="type" required>
-                            <option value="minecraft">Minecraft</option>
-                            <option value="web">Web Server</option>
-                            <option value="database">Database</option>
-                        </select>
+                        <div class="custom-dropdown" id="serverTypeDropdown">
+                            <div class="dropdown-header" onclick="toggleDropdown('serverTypeDropdown')">
+                                <span class="dropdown-selected">Minecraft</span>
+                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                            </div>
+                            <div class="dropdown-options" id="serverTypeOptions">
+                                <div class="dropdown-option" data-value="minecraft" onclick="selectOption('serverTypeDropdown', 'minecraft', 'Minecraft')">Minecraft</div>
+                                <div class="dropdown-option" data-value="web" onclick="selectOption('serverTypeDropdown', 'web', 'Web Server')">Web Server</div>
+                                <div class="dropdown-option" data-value="database" onclick="selectOption('serverTypeDropdown', 'database', 'Database')">Database</div>
+                            </div>
+                            <input type="hidden" id="serverType" name="type" value="minecraft" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="versionGroup" style="display: block;">
+                        <label for="minecraftVersion">Minecraft Version</label>
+                        <div class="custom-dropdown" id="minecraftVersionDropdown">
+                            <div class="dropdown-header" onclick="toggleDropdown('minecraftVersionDropdown')">
+                                <span class="dropdown-selected">Latest Stable</span>
+                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                            </div>
+                            <div class="dropdown-options" id="minecraftVersionOptions">
+                                <div class="dropdown-option" data-value="LATEST" onclick="selectOption('minecraftVersionDropdown', 'LATEST', 'Latest Stable')">Latest Stable</div>
+                                <div class="dropdown-option" data-value="SNAPSHOT" onclick="selectOption('minecraftVersionDropdown', 'SNAPSHOT', 'Latest Snapshot')">Latest Snapshot</div>
+                                <div class="dropdown-option" data-value="1.21.8" onclick="selectOption('minecraftVersionDropdown', '1.21.8', '1.21.8')">1.21.8</div>
+                                <div class="dropdown-option" data-value="1.21.7" onclick="selectOption('minecraftVersionDropdown', '1.21.7', '1.21.7')">1.21.7</div>
+                                <div class="dropdown-option" data-value="1.21.6" onclick="selectOption('minecraftVersionDropdown', '1.21.6', '1.21.6')">1.21.6</div>
+                                <div class="dropdown-option" data-value="1.21.5" onclick="selectOption('minecraftVersionDropdown', '1.21.5', '1.21.5')">1.21.5</div>
+                                <div class="dropdown-option" data-value="1.21.4" onclick="selectOption('minecraftVersionDropdown', '1.21.4', '1.21.4')">1.21.4</div>
+                                <div class="dropdown-option" data-value="1.21.3" onclick="selectOption('minecraftVersionDropdown', '1.21.3', '1.21.3')">1.21.3</div>
+                                <div class="dropdown-option" data-value="1.21.2" onclick="selectOption('minecraftVersionDropdown', '1.21.2', '1.21.2')">1.21.2</div>
+                                <div class="dropdown-option" data-value="1.21.1" onclick="selectOption('minecraftVersionDropdown', '1.21.1', '1.21.1')">1.21.1</div>
+                                <div class="dropdown-option" data-value="1.21" onclick="selectOption('minecraftVersionDropdown', '1.21', '1.21')">1.21</div>
+                                <div class="dropdown-option" data-value="1.20.6" onclick="selectOption('minecraftVersionDropdown', '1.20.6', '1.20.6')">1.20.6</div>
+                                <div class="dropdown-option" data-value="1.20.5" onclick="selectOption('minecraftVersionDropdown', '1.20.5', '1.20.5')">1.20.5</div>
+                                <div class="dropdown-option" data-value="1.20.4" onclick="selectOption('minecraftVersionDropdown', '1.20.4', '1.20.4')">1.20.4</div>
+                                <div class="dropdown-option" data-value="1.20.3" onclick="selectOption('minecraftVersionDropdown', '1.20.3', '1.20.3')">1.20.3</div>
+                                <div class="dropdown-option" data-value="1.20.2" onclick="selectOption('minecraftVersionDropdown', '1.20.2', '1.20.2')">1.20.2</div>
+                                <div class="dropdown-option" data-value="1.20.1" onclick="selectOption('minecraftVersionDropdown', '1.20.1', '1.20.1')">1.20.1</div>
+                                <div class="dropdown-option" data-value="1.20" onclick="selectOption('minecraftVersionDropdown', '1.20', '1.20')">1.20</div>
+                                <div class="dropdown-option" data-value="1.19.4" onclick="selectOption('minecraftVersionDropdown', '1.19.4', '1.19.4')">1.19.4</div>
+                                <div class="dropdown-option" data-value="1.19.3" onclick="selectOption('minecraftVersionDropdown', '1.19.3', '1.19.3')">1.19.3</div>
+                                <div class="dropdown-option" data-value="1.19.2" onclick="selectOption('minecraftVersionDropdown', '1.19.2', '1.19.2')">1.19.2</div>
+                                <div class="dropdown-option" data-value="1.19.1" onclick="selectOption('minecraftVersionDropdown', '1.19.1', '1.19.1')">1.19.1</div>
+                                <div class="dropdown-option" data-value="1.19" onclick="selectOption('minecraftVersionDropdown', '1.19', '1.19')">1.19</div>
+                                <div class="dropdown-option" data-value="1.18.2" onclick="selectOption('minecraftVersionDropdown', '1.18.2', '1.18.2')">1.18.2</div>
+                                <div class="dropdown-option" data-value="1.18.1" onclick="selectOption('minecraftVersionDropdown', '1.18.1', '1.18.1')">1.18.1</div>
+                                <div class="dropdown-option" data-value="1.18" onclick="selectOption('minecraftVersionDropdown', '1.18', '1.18')">1.18</div>
+                                <div class="dropdown-option" data-value="1.17.1" onclick="selectOption('minecraftVersionDropdown', '1.17.1', '1.17.1')">1.17.1</div>
+                                <div class="dropdown-option" data-value="1.17" onclick="selectOption('minecraftVersionDropdown', '1.17', '1.17')">1.17</div>
+                                <div class="dropdown-option" data-value="1.16.5" onclick="selectOption('minecraftVersionDropdown', '1.16.5', '1.16.5')">1.16.5</div>
+                                <div class="dropdown-option" data-value="1.16.4" onclick="selectOption('minecraftVersionDropdown', '1.16.4', '1.16.4')">1.16.4</div>
+                                <div class="dropdown-option" data-value="1.16.3" onclick="selectOption('minecraftVersionDropdown', '1.16.3', '1.16.3')">1.16.3</div>
+                                <div class="dropdown-option" data-value="1.16.2" onclick="selectOption('minecraftVersionDropdown', '1.16.2', '1.16.2')">1.16.2</div>
+                                <div class="dropdown-option" data-value="1.16.1" onclick="selectOption('minecraftVersionDropdown', '1.16.1', '1.16.1')">1.16.1</div>
+                                <div class="dropdown-option" data-value="1.16" onclick="selectOption('minecraftVersionDropdown', '1.16', '1.16')">1.16</div>
+                                <div class="dropdown-option" data-value="1.15.2" onclick="selectOption('minecraftVersionDropdown', '1.15.2', '1.15.2')">1.15.2</div>
+                                <div class="dropdown-option" data-value="1.15.1" onclick="selectOption('minecraftVersionDropdown', '1.15.1', '1.15.1')">1.15.1</div>
+                                <div class="dropdown-option" data-value="1.15" onclick="selectOption('minecraftVersionDropdown', '1.15', '1.15')">1.15</div>
+                                <div class="dropdown-option" data-value="1.14.4" onclick="selectOption('minecraftVersionDropdown', '1.14.4', '1.14.4')">1.14.4</div>
+                                <div class="dropdown-option" data-value="1.14.3" onclick="selectOption('minecraftVersionDropdown', '1.14.3', '1.14.3')">1.14.3</div>
+                                <div class="dropdown-option" data-value="1.14.2" onclick="selectOption('minecraftVersionDropdown', '1.14.2', '1.14.2')">1.14.2</div>
+                                <div class="dropdown-option" data-value="1.14.1" onclick="selectOption('minecraftVersionDropdown', '1.14.1', '1.14.1')">1.14.1</div>
+                                <div class="dropdown-option" data-value="1.14" onclick="selectOption('minecraftVersionDropdown', '1.14', '1.14')">1.14</div>
+                                <div class="dropdown-option" data-value="1.13.2" onclick="selectOption('minecraftVersionDropdown', '1.13.2', '1.13.2')">1.13.2</div>
+                                <div class="dropdown-option" data-value="1.13.1" onclick="selectOption('minecraftVersionDropdown', '1.13.1', '1.13.1')">1.13.1</div>
+                                <div class="dropdown-option" data-value="1.13" onclick="selectOption('minecraftVersionDropdown', '1.13', '1.13')">1.13</div>
+                                <div class="dropdown-option" data-value="1.12.2" onclick="selectOption('minecraftVersionDropdown', '1.12.2', '1.12.2')">1.12.2</div>
+                                <div class="dropdown-option" data-value="1.12.1" onclick="selectOption('minecraftVersionDropdown', '1.12.1', '1.12.1')">1.12.1</div>
+                                <div class="dropdown-option" data-value="1.12" onclick="selectOption('minecraftVersionDropdown', '1.12', '1.12')">1.12</div>
+                                <div class="dropdown-option" data-value="1.11.2" onclick="selectOption('minecraftVersionDropdown', '1.11.2', '1.11.2')">1.11.2</div>
+                                <div class="dropdown-option" data-value="1.11.1" onclick="selectOption('minecraftVersionDropdown', '1.11.1', '1.11.1')">1.11.1</div>
+                                <div class="dropdown-option" data-value="1.11" onclick="selectOption('minecraftVersionDropdown', '1.11', '1.11')">1.11</div>
+                                <div class="dropdown-option" data-value="1.10.2" onclick="selectOption('minecraftVersionDropdown', '1.10.2', '1.10.2')">1.10.2</div>
+                                <div class="dropdown-option" data-value="1.10.1" onclick="selectOption('minecraftVersionDropdown', '1.10.1', '1.10.1')">1.10.1</div>
+                                <div class="dropdown-option" data-value="1.10" onclick="selectOption('minecraftVersionDropdown', '1.10', '1.10')">1.10</div>
+                                <div class="dropdown-option" data-value="1.9.4" onclick="selectOption('minecraftVersionDropdown', '1.9.4', '1.9.4')">1.9.4</div>
+                                <div class="dropdown-option" data-value="1.9.3" onclick="selectOption('minecraftVersionDropdown', '1.9.3', '1.9.3')">1.9.3</div>
+                                <div class="dropdown-option" data-value="1.9.2" onclick="selectOption('minecraftVersionDropdown', '1.9.2', '1.9.2')">1.9.2</div>
+                                <div class="dropdown-option" data-value="1.9.1" onclick="selectOption('minecraftVersionDropdown', '1.9.1', '1.9.1')">1.9.1</div>
+                                <div class="dropdown-option" data-value="1.9" onclick="selectOption('minecraftVersionDropdown', '1.9', '1.9')">1.9</div>
+                                <div class="dropdown-option" data-value="1.8.9" onclick="selectOption('minecraftVersionDropdown', '1.8.9', '1.8.9')">1.8.9</div>
+                                <div class="dropdown-option" data-value="1.7.10" onclick="selectOption('minecraftVersionDropdown', '1.7.10', '1.7.10')">1.7.10</div>
+                                <div class="dropdown-option" data-value="1.7.9" onclick="selectOption('minecraftVersionDropdown', '1.7.9', '1.7.9')">1.7.9</div>
+                                <div class="dropdown-option" data-value="b1.7.3" onclick="selectOption('minecraftVersionDropdown', 'b1.7.3', 'Beta 1.7.3')">Beta 1.7.3</div>
+                                <div class="dropdown-option" data-value="a1.2.6" onclick="selectOption('minecraftVersionDropdown', 'a1.2.6', 'Alpha 1.2.6')">Alpha 1.2.6</div>
+                            </div>
+                            <input type="hidden" id="minecraftVersion" name="version" value="LATEST">
+                        </div>
+                        <small>Choose the Minecraft version for your server. LATEST is recommended for most users.</small>
                     </div>
 
                     <div class="form-group">
@@ -95,6 +180,67 @@
     <div id="toast" class="toast" style="display: none;"></div>
 
     <script>
+        // Custom Dropdown Functions
+        function toggleDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            const options = dropdown.querySelector('.dropdown-options');
+            const arrow = dropdown.querySelector('.dropdown-arrow');
+            
+            // Close all other dropdowns
+            document.querySelectorAll('.dropdown-options').forEach(opt => {
+                if (opt !== options) {
+                    opt.classList.remove('show');
+                    opt.parentElement.querySelector('.dropdown-arrow').classList.remove('rotate');
+                }
+            });
+            
+            // Toggle current dropdown
+            options.classList.toggle('show');
+            arrow.classList.toggle('rotate');
+        }
+
+        function selectOption(dropdownId, value, text) {
+            const dropdown = document.getElementById(dropdownId);
+            const selectedSpan = dropdown.querySelector('.dropdown-selected');
+            const hiddenInput = dropdown.querySelector('input[type="hidden"]');
+            const options = dropdown.querySelector('.dropdown-options');
+            const arrow = dropdown.querySelector('.dropdown-arrow');
+            
+            // Update display and value
+            selectedSpan.textContent = text;
+            hiddenInput.value = value;
+            
+            // Close dropdown
+            options.classList.remove('show');
+            arrow.classList.remove('rotate');
+            
+            // Handle version field toggle for server type
+            if (dropdownId === 'serverTypeDropdown') {
+                toggleVersionField();
+            }
+        }
+
+        function toggleVersionField() {
+            const serverType = document.getElementById('serverType').value;
+            const versionGroup = document.getElementById('versionGroup');
+            
+            if (serverType === 'minecraft') {
+                versionGroup.style.display = 'block';
+            } else {
+                versionGroup.style.display = 'none';
+            }
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.custom-dropdown')) {
+                document.querySelectorAll('.dropdown-options').forEach(opt => {
+                    opt.classList.remove('show');
+                    opt.parentElement.querySelector('.dropdown-arrow').classList.remove('rotate');
+                });
+            }
+        });
+
         async function handleSubmit(event) {
             event.preventDefault();
             
@@ -105,8 +251,13 @@
                 port: formData.get('port')
             };
 
+            // Add version if it's a Minecraft server
+            if (serverData.type === 'minecraft') {
+                serverData.version = formData.get('version') || 'LATEST';
+            }
+
             try {
-                const response = await fetch('http://localhost:3000/api/servers', {
+                const response = await fetch('http://localhost:8080/api/servers', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

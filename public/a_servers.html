@@ -71,7 +71,7 @@
     <script>
         // Get the server URL dynamically
         const serverUrl = window.location.port === '5500' 
-            ? 'http://localhost:3000' 
+            ? 'http://localhost:8080' 
             : '';
 
         async function loadContainers() {
@@ -95,7 +95,7 @@
                 }
 
                 grid.innerHTML = containers.map(container => `
-                    <div class="container-card ${getStatusClass(container.status)}">
+                    <div class="container-card ${getStatusClass(container.status)}" onclick="navigateToServerDetails('${container.name}')">
                         <div class="container-header">
                             <div class="server-info">
                                 <h3>${container.name}</h3>
@@ -110,7 +110,7 @@
                             <p><strong>Ports:</strong> ${container.ports || 'None'}</p>
                             <p><strong>Status:</strong> ${container.status}</p>
                         </div>
-                        <div class="container-actions">
+                        <div class="container-actions" onclick="event.stopPropagation()">
                             <button onclick="handleContainer('${container.name}', 'start')" 
                                     class="button button-success">
                                 <i class="fas fa-play"></i>
@@ -197,8 +197,6 @@
         }
 
         async function handleContainer(name, action) {
-            console.log(`Attempting to ${action} container: ${name}`);
-            
             try {
                 if (action === 'remove') {
                     if (!confirm('Are you sure you want to remove this server? This action cannot be undone.')) {
@@ -207,7 +205,6 @@
                 }
 
                 const endpoint = `${serverUrl}/api/docker/${action}/${name}`;
-                console.log('Calling endpoint:', endpoint);
                 
                 const response = await fetch(endpoint, {
                     method: 'POST',
@@ -231,6 +228,11 @@
 
         function refreshContainers() {
             loadContainers();
+        }
+
+        // Function to navigate to server details page
+        function navigateToServerDetails(serverName) {
+            window.location.href = `server_details.html?name=${serverName}`;
         }
 
         // Load containers when page loads
@@ -259,10 +261,9 @@
             }
         }
 
-        // Update the stopServer function with debugging
+        // Update the stopServer function
         async function stopServer(serverName, event) {
             event.stopPropagation(); // Prevent card click event
-            console.log('Attempting to stop server:', serverName); // Debug log
             
             try {
                 const response = await fetch(`${serverUrl}/api/servers/${serverName}/stop`, {
@@ -272,11 +273,9 @@
                     }
                 });
 
-                console.log('Stop response:', response); // Debug log
-
                 if (!response.ok) {
                     const errorData = await response.json();
-                    console.error('Server error:', errorData); // Debug log
+                    console.error('Server error:', errorData);
                     throw new Error(errorData.error || 'Failed to stop server');
                 }
                 
@@ -320,10 +319,28 @@
             padding: 1.5rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             transition: transform 0.2s ease;
+            cursor: pointer;
+            position: relative;
         }
 
         .container-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .container-card::after {
+            content: 'Click to view details';
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 0.75rem;
+            color: #6b7280;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .container-card:hover::after {
+            opacity: 1;
         }
 
         .container-card.running {

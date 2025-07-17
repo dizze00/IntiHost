@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IntiHost - Dashboard</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>IntiHost - Admin Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -38,210 +41,399 @@
                 </a>
                 <a href="login.html" class="menu-item">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span>Login</span>
+                    <span>Logout</span>
                 </a>
             </div>
-            <audio id="tabSound" preload="auto">
-                <source src="assets/click.mp3" type="audio/mpeg">
-            </audio>
         </div>
 
         <!-- Main Content -->
         <div class="main-content">
             <div class="page-header">
-                <h1>Dashboard</h1>
+                <div class="header-title">
+                    <h1>Admin Dashboard</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="button button-primary" onclick="refreshStats()">
+                        <i class="fas fa-sync"></i>
+                        Refresh
+                    </button>
+                </div>
             </div>
 
-            <!-- Action Bar -->
-            <div class="action-bar">
-                <button onclick="handleBulkAction('start')" class="action-button start">
-                    <i class="fas fa-play"></i>
-                    Start All
-                </button>
-                <div class="divider"></div>
-                <button onclick="handleBulkAction('stop')" class="action-button stop">
-                    <i class="fas fa-stop"></i>
-                    Stop All
-                </button>
-                <div class="divider"></div>
-                <button onclick="handleBulkAction('restart')" class="action-button restart">
-                    <i class="fas fa-sync"></i>
-                    Restart All
-                </button>
+            <!-- Stats Cards -->
+            <div class="dashboard-stats">
+                <div class="card stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>Total Servers</h3>
+                        <div class="stat-value" id="totalServers">-</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-play-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>Running Servers</h3>
+                        <div class="stat-value" id="runningServers">-</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>Online</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>Total Users</h3>
+                        <div class="stat-value" id="totalUsers">-</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>Registered</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>System Load</h3>
+                        <div class="stat-value" id="systemLoad">-</div>
+                        <div class="stat-change neutral">
+                            <i class="fas fa-minus"></i>
+                            <span>Normal</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                </div>
+                <div class="activity-list" id="activityList">
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">Loading recent activity...</div>
+                            <div class="activity-time">Please wait</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+                </div>
+                <div class="quick-actions">
+                    <a href="servform.html" class="quick-action">
+                        <i class="fas fa-plus"></i>
+                        <span>Create Server</span>
+                    </a>
+                    <a href="a_servers.html" class="quick-action">
+                        <i class="fas fa-server"></i>
+                        <span>Manage Servers</span>
+                    </a>
+                    <a href="a_users.html" class="quick-action">
+                        <i class="fas fa-users"></i>
+                        <span>User Management</span>
+                    </a>
+                    <a href="a_backups.html" class="quick-action">
+                        <i class="fas fa-database"></i>
+                        <span>Backup System</span>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        const serverUrl = window.location.port === '5500' 
-            ? 'http://localhost:3000' 
-            : '';
+        const serverUrl = window.location.port === '5500' ? 'http://localhost:8080' : 
+                         window.location.port === '8080' ? '' : 'http://localhost:8080';
+        console.log('Current port:', window.location.port);
+        console.log('Server URL:', serverUrl);
 
-        async function handleBulkAction(action) {
-            const button = event.currentTarget;
-            const originalText = button.innerHTML;
-            
+        async function loadStats() {
             try {
-                button.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Processing...`;
-                button.disabled = true;
-
-                const response = await fetch(`${serverUrl}/api/docker/${action}-all`, {
-                    method: 'POST'
-                });
+                console.log('Fetching stats from:', `${serverUrl}/api/dashboard/stats`);
+                const response = await fetch(`${serverUrl}/api/dashboard/stats?t=${Date.now()}`);
+                if (!response.ok) throw new Error('Failed to fetch stats');
                 
-                if (!response.ok) {
-                    throw new Error(`Failed to ${action} containers`);
-                }
+                const stats = await response.json();
                 
-                showToast(`Successfully ${action}ed all servers`, 'success');
+                // Update statistics cards
+                document.getElementById('totalServers').textContent = stats.totalServers || 0;
+                document.getElementById('runningServers').textContent = stats.activeServers || 0;
+                document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
+                document.getElementById('systemLoad').textContent = stats.systemLoad || '0%';
+                
+                // Update recent activity
+                updateRecentActivity(stats.recentActivity || []);
+                
             } catch (error) {
-                console.error('Error:', error);
-                showToast(`Failed to ${action} servers: ${error.message}`, 'error');
-            } finally {
-                button.innerHTML = originalText;
-                button.disabled = false;
+                console.error('Error loading stats:', error);
+                showToast('Failed to load statistics', 'error');
             }
         }
 
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
+        function updateRecentActivity(activities) {
+            const activityList = document.getElementById('activityList');
+            
+            if (activities.length === 0) {
+                activityList.innerHTML = `
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">No recent activity</div>
+                            <div class="activity-time">Start creating servers to see activity</div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            activityList.innerHTML = activities.map(activity => `
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="${activity.icon}"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">${activity.title}</div>
+                        <div class="activity-time">${activity.timeAgo}</div>
+                    </div>
+                </div>
+            `).join('');
         }
 
-        // Add click sound to all menu items
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const audio = document.getElementById('tabSound');
-                audio.currentTime = 0; // Reset sound to start
-                audio.play();
-            });
-        });
+        function refreshStats() {
+            loadStats();
+            showToast('Statistics refreshed', 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Load stats on page load
+        document.addEventListener('DOMContentLoaded', loadStats);
     </script>
 
     <style>
-        .action-bar {
-            background: white;
-            padding: 1rem;
-            border-radius: 15px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
             display: flex;
             align-items: center;
-            margin: 2rem 0;
+            gap: 1.5rem;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
         }
 
-        .action-button {
-            border: none;
-            padding: 0.75rem 1.5rem;
-            font-size: 1rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: white;
-            font-weight: 500;
-            flex: 1;
-            justify-content: center;
-            border-radius: 12px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .action-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .action-button:active {
-            transform: translateY(0);
-        }
-
-        .action-button.start {
-            background-color: #10b981;
-        }
-
-        .action-button.stop {
-            background-color: #ef4444;
-        }
-
-        .action-button.restart {
-            background-color: #3b82f6;
-        }
-
-        .action-button i {
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
             transition: transform 0.3s ease;
         }
 
-        .action-button:hover i.fa-sync {
-            transform: rotate(180deg);
+        .stat-card:hover::before {
+            transform: scaleX(1);
         }
 
-        .action-button:hover i.fa-play {
-            transform: translateX(3px);
-        }
-
-        .action-button:hover i.fa-stop {
-            transform: scale(0.9);
-        }
-
-        .divider {
-            width: 1px;
-            height: 24px;
-            background: #e5e7eb;
-            margin: 0 1rem;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            padding: 1rem 2rem;
-            border-radius: 12px;
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--gradient-primary);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
             color: white;
-            z-index: 1000;
-            animation: slideIn 0.3s ease-out;
+            flex-shrink: 0;
         }
 
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-content h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-change {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .stat-change.positive {
+            color: var(--success-color);
+        }
+
+        .stat-change.negative {
+            color: var(--danger-color);
+        }
+
+        .stat-change.neutral {
+            color: var(--text-secondary);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-header h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-glass);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .activity-item:hover {
+            transform: translateX(5px);
+            background: var(--bg-card);
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-primary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-time {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .quick-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            padding: 2rem;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .quick-action:hover {
+            transform: translateY(-5px);
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: var(--shadow-heavy);
+        }
+
+        .quick-action i {
+            font-size: 2rem;
+        }
+
+        .quick-action span {
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-stats {
+                grid-template-columns: 1fr;
             }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
 
-        .toast-success {
-            background-color: #10b981;
-        }
-
-        .toast-error {
-            background-color: #ef4444;
-        }
-
-        .action-button:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .fa-circle-notch {
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-            to {
-                transform: rotate(360deg);
+            .quick-actions {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
