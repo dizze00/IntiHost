@@ -57,7 +57,7 @@
                 submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing In...';
                 submitButton.disabled = true;
 
-                const response = await fetch('http://localhost:5005/api/login', {
+                const response = await fetch('http://localhost:3001/api/login', {
                     method: 'POST',
                     credentials: 'include',
                     headers: {

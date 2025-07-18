@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - User Form</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .form-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: var(--bg-card);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .form-header h1 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-group label i {
+            margin-right: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group input[readonly] {
+            background-color: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .button-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .button-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+
+        .button-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .success-message {
+            color: #10b981;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+
+
+        .role-description {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        /* Remove default select styling */
+        .form-group select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: none !important;
+            background: var(--bg-input) !important;
+        }
+
+        .form-group select::-ms-expand {
+            display: none;
+        }
+
+        /* Ensure inputs don't show background arrows */
+        .form-group input[type="number"]::-webkit-outer-spin-button,
+        .form-group input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .form-group input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>IntiHost</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="a_dashboard.html" class="menu-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="a_servers.html" class="menu-item">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="a_requests.html" class="menu-item">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Requests</span>
+                </a>
+                <a href="a_users.html" class="menu-item active">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                </a>
+                <a href="a_statistics.html" class="menu-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Statistics</span>
+                </a>
+                <a href="a_backups.html" class="menu-item">
+                    <i class="fas fa-database"></i>
+                    <span>Backups</span>
+                </a>
+                <a href="#" class="menu-item" onclick="logout(); return false;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="form-container">
+                <a href="a_users.html" class="back-link">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Users
+                </a>
+
+                <div class="form-header">
+                    <h1 id="formTitle">Add New User</h1>
+                    <p id="formSubtitle">Create a new user account</p>
+                </div>
+
+                <form id="userForm">
+                    <div class="form-group">
+                        <label for="username">
+                            <i class="fas fa-user"></i> Username
+                        </label>
+                        <input type="text" id="username" name="username" required>
+                        <div class="error-message" id="usernameError"></div>
+                        <div class="field-note" id="usernameNote" style="display: none; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                            <i class="fas fa-info-circle"></i> Username cannot be changed once created
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">
+                            <i class="fas fa-envelope"></i> Email Address
+                        </label>
+                        <input type="email" id="email" name="email" required>
+                        <div class="error-message" id="emailError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">
+                            <i class="fas fa-lock"></i> Password
+                        </label>
+                        <input type="password" id="password" name="password" required>
+                        <div class="error-message" id="passwordError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmPassword">
+                            <i class="fas fa-lock"></i> Confirm Password
+                        </label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required>
+                        <div class="error-message" id="confirmPasswordError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="role">
+                            <i class="fas fa-user-shield"></i> Role
+                        </label>
+                        <div class="custom-dropdown" id="roleDropdown">
+                            <div class="dropdown-header" onclick="toggleDropdown('roleDropdown')">
+                                <span class="dropdown-selected">User</span>
+                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                            </div>
+                            <div class="dropdown-options" id="roleOptions">
+                                <div class="dropdown-option" data-value="user" onclick="selectOption('roleDropdown', 'user', 'User')">User</div>
+                                <div class="dropdown-option" data-value="admin" onclick="selectOption('roleDropdown', 'admin', 'Admin')">Admin</div>
+                            </div>
+                            <input type="hidden" id="role" name="role" value="user" required>
+                        </div>
+                        <div class="role-description">
+                            <strong>User:</strong> Standard access to servers and basic features<br>
+                            <strong>Admin:</strong> Full administrative access to all features
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="button button-secondary" onclick="window.location.href='a_users.html'">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="button button-primary" id="submitButton">
+                            <i class="fas fa-plus"></i> Create User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Server configuration
+        const API_BASE_URL = 'http://localhost:3001';
+        let isEditMode = false;
+        let currentUsername = null;
+
+        // Check authentication on page load
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users`, {
+                    credentials: 'include'
+                });
+                
+                if (response.status === 401) {
+                    window.location.href = '/login.html';
+                    return false;
+                }
+                return true;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/login.html';
+                return false;
+            }
+        }
+
+        // Get URL parameters
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        // Initialize form based on URL parameters
+        async function initializeForm() {
+            const mode = getUrlParameter('mode');
+            const username = getUrlParameter('username');
+
+            if (mode === 'edit' && username) {
+                isEditMode = true;
+                currentUsername = username;
+                
+                // Update form title and button
+                document.getElementById('formTitle').textContent = 'Edit User';
+                document.getElementById('formSubtitle').textContent = `Modify user account: ${username}`;
+                document.getElementById('submitButton').innerHTML = '<i class="fas fa-save"></i> Save Changes';
+                
+                // Load user data
+                await loadUserData(username);
+            } else {
+                // Add mode - form is already set up correctly
+                isEditMode = false;
+            }
+        }
+
+        // Load user data for editing
+        async function loadUserData(username) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load user data');
+                }
+                
+                const user = await response.json();
+                
+                // Fill form fields
+                document.getElementById('username').value = user.username;
+                document.getElementById('username').readOnly = true; // Username cannot be changed
+                document.getElementById('email').value = user.email;
+                
+                // Set role dropdown
+                const roleValue = user.isAdmin ? 'admin' : 'user';
+                const roleText = user.isAdmin ? 'Admin' : 'User';
+                document.getElementById('role').value = roleValue;
+                document.querySelector('#roleDropdown .dropdown-selected').textContent = roleText;
+                
+                // Make password fields optional in edit mode
+                document.getElementById('password').required = false;
+                document.getElementById('confirmPassword').required = false;
+                document.getElementById('password').placeholder = 'Enter new password (leave blank to keep current)';
+                document.getElementById('confirmPassword').placeholder = 'Confirm new password (leave blank to keep current)';
+                
+                // Add visual indicator that username cannot be changed
+                const usernameField = document.getElementById('username');
+                usernameField.style.backgroundColor = 'var(--bg-secondary)';
+                usernameField.style.color = 'var(--text-secondary)';
+                usernameField.style.cursor = 'not-allowed';
+                
+                // Show note about username being read-only
+                document.getElementById('usernameNote').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                showError('Failed to load user data. Please try again.');
+            }
+        }
+
+        // Show error message
+        function showError(message, field = null) {
+            if (field) {
+                const errorElement = document.getElementById(`${field}Error`);
+                if (errorElement) {
+                    errorElement.textContent = message;
+                    errorElement.style.display = 'block';
+                }
+            } else {
+                // Show general error
+                alert(message);
+            }
+        }
+
+        // Clear error messages
+        function clearErrors() {
+            document.querySelectorAll('.error-message').forEach(element => {
+                element.style.display = 'none';
+            });
+        }
+
+
+
+        // Handle form submission
+        document.getElementById('userForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            clearErrors();
+            
+            const formData = new FormData(this);
+            const username = formData.get('username');
+            const email = formData.get('email');
+            const password = formData.get('password');
+            const confirmPassword = formData.get('confirmPassword');
+            const role = formData.get('role');
+            
+            // Validation
+            let hasErrors = false;
+            
+            if (!username || username.trim().length < 3) {
+                showError('Username must be at least 3 characters long', 'username');
+                hasErrors = true;
+            }
+            
+            if (!email || !email.includes('@')) {
+                showError('Please enter a valid email address', 'email');
+                hasErrors = true;
+            }
+            
+            if (!isEditMode) {
+                // Password validation only for new users
+                if (!password) {
+                    showError('Password is required', 'password');
+                    hasErrors = true;
+                } else if (password !== confirmPassword) {
+                    showError('Passwords do not match', 'confirmPassword');
+                    hasErrors = true;
+                }
+            } else if (password || confirmPassword) {
+                // If either password field is filled in edit mode, both must be filled
+                if (!password) {
+                    showError('Please enter a new password', 'password');
+                    hasErrors = true;
+                } else if (!confirmPassword) {
+                    showError('Please confirm the new password', 'confirmPassword');
+                    hasErrors = true;
+                } else if (password !== confirmPassword) {
+                    showError('Passwords do not match', 'confirmPassword');
+                    hasErrors = true;
+                }
+            }
+            
+            if (hasErrors) return;
+            
+            try {
+                const requestBody = {
+                    username: username,
+                    email: email,
+                    isAdmin: role === 'admin'
+                };
+                
+                // Only include password if it's provided and not empty
+                if (password && password.trim() !== '') {
+                    requestBody.password = password;
+                }
+                
+                const url = isEditMode ? 
+                    `${API_BASE_URL}/api/users/${currentUsername}` : 
+                    `${API_BASE_URL}/api/users`;
+                
+                const method = isEditMode ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save user');
+                }
+                
+                // Success - redirect back to users page
+                const successMessage = isEditMode ? 'User updated successfully' : 'User created successfully';
+                alert(successMessage);
+                window.location.href = 'a_users.html';
+                
+            } catch (error) {
+                console.error('Error saving user:', error);
+                showError(error.message);
+            }
+        });
+
+        // Custom Dropdown Functions
+        function toggleDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            const options = dropdown.querySelector('.dropdown-options');
+            const arrow = dropdown.querySelector('.dropdown-arrow');
+            
+            // Close all other dropdowns
+            document.querySelectorAll('.dropdown-options').forEach(opt => {
+                if (opt !== options) {
+                    opt.classList.remove('show');
+                    opt.parentElement.querySelector('.dropdown-arrow').classList.remove('rotate');
+                }
+            });
+            
+            // Toggle current dropdown
+            options.classList.toggle('show');
+            arrow.classList.toggle('rotate');
+        }
+
+        function selectOption(dropdownId, value, text) {
+            const dropdown = document.getElementById(dropdownId);
+            const selectedSpan = dropdown.querySelector('.dropdown-selected');
+            const hiddenInput = dropdown.querySelector('input[type="hidden"]');
+            const options = dropdown.querySelector('.dropdown-options');
+            const arrow = dropdown.querySelector('.dropdown-arrow');
+            
+            selectedSpan.textContent = text;
+            hiddenInput.value = value;
+            
+            // Close dropdown
+            options.classList.remove('show');
+            arrow.classList.remove('rotate');
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.custom-dropdown')) {
+                document.querySelectorAll('.dropdown-options').forEach(opt => {
+                    opt.classList.remove('show');
+                    opt.parentElement.querySelector('.dropdown-arrow').classList.remove('rotate');
+                });
+            }
+        });
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isAuthenticated = await checkAuth();
+            if (isAuthenticated) {
+                await initializeForm();
+            }
+        });
+    </script>
+</body>
+</html> 

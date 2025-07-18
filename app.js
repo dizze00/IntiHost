@@ -795,6 +795,22 @@ app.get('/a_servers.html', requireAdmin, (req, res) => {
     res.sendFile(join(__dirname, 'public', 'a_servers.html'));
 });
 
+app.get('/a_users.html', requireAdmin, (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'a_users.html'));
+});
+
+app.get('/a_requests.html', requireAdmin, (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'a_requests.html'));
+});
+
+app.get('/a_statistics.html', requireAdmin, (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'a_statistics.html'));
+});
+
+app.get('/a_backups.html', requireAdmin, (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'a_backups.html'));
+});
+
 app.get('/servform.html', requireAdmin, (req, res) => {
     res.sendFile(join(__dirname, 'public', 'servform.html'));
 });

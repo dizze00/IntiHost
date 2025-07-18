@@ -6,6 +6,312 @@
     <title>IntiHost - Users</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+
+
+        /* User cards styles */
+        .users-list {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .user-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+            border-color: var(--primary-color);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: var(--gradient-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .user-details h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        .user-details p {
+            margin: 0 0 0.5rem 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .button-small {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9rem;
+            min-width: 90px;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        /* Modal Styles for Delete Confirmation */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--gradient-primary);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: background-color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .button-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .button-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+
+        .button-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .button-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .button-danger:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .role-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: default;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .role-badge.admin {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .role-badge.user {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            color: white;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-badge.active {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .button-small {
+            padding: 0.5rem;
+            font-size: 0.9rem;
+            border-radius: 6px;
+        }
+
+        .button-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .button-danger:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Non-interactive elements */
+        .editable-text, .editable-number, .editable-role {
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .editable-input {
+            cursor: text;
+            transition: all 0.3s ease;
+        }
+
+        .editable-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* Make statistics non-interactive */
+        .stat-card h3,
+        .stat-card h2,
+        .stat-card span {
+            cursor: default;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        /* Make page header title non-interactive */
+        .page-header h1 {
+            cursor: default;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        /* Make search bar area non-interactive (except for the input itself) */
+        .search-bar {
+            cursor: default;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        /* Re-enable pointer events for the search input and button */
+        .search-bar input,
+        .search-bar button {
+            pointer-events: auto;
+            cursor: text;
+        }
+
+        .search-bar button {
+            cursor: pointer;
+        }
+
+    </style>
 </head>
 <body>
     <div class="admin-container">
@@ -39,9 +345,9 @@
                     <i class="fas fa-database"></i>
                     <span>Backups</span>
                 </a>
-                <a href="login.html" class="menu-item">
+                <a href="#" class="menu-item" onclick="logout(); return false;">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span>Login</span>
+                    <span>Logout</span>
                 </a>
             </div>
         </div>
@@ -52,7 +358,7 @@
                 <h1>User Management</h1>
                 <div class="search-bar">
                     <input type="text" placeholder="Search users...">
-                    <button class="button button-primary" onclick="addUser()">
+                    <button class="button button-primary" onclick="window.location.href='a_userform.html'">
                         <i class="fas fa-plus"></i> Add User
                     </button>
                 </div>
@@ -61,35 +367,170 @@
             <!-- User Statistics -->
             <div class="stats-cards">
                 <div class="stat-card">
-                    <h3><i class="fas fa-users"></i> Total Users</h3>
+                    <h3><i class="fas fa-users"></i> <span>Total Users</span></h3>
                     <h2 id="total-users">Loading...</h2>
                 </div>
                 <div class="stat-card">
-                    <h3><i class="fas fa-user-check"></i> Active Users</h3>
+                    <h3><i class="fas fa-user-check"></i> <span>Active Users</span></h3>
                     <h2 id="active-users">Loading...</h2>
                 </div>
             </div>
 
-            <!-- Users Table -->
-            <div class="table-container">
-                <table class="users-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="users-table-body">
-                        <!-- Users will be dynamically added here -->
-                    </tbody>
-                </table>
+            <!-- Users List -->
+            <div class="users-list" id="users-list">
+                <!-- Users will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Delete User Confirmation Modal -->
+    <div id="deleteUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                <h3><i class="fas fa-exclamation-triangle"></i> Delete User</h3>
+                <button class="modal-close" onclick="closeDeleteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="padding: 2rem;">
+                <p style="margin-bottom: 1rem; color: var(--text-primary);">
+                    Are you sure you want to delete user <strong id="deleteUserName"></strong>?
+                </p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 2rem;">
+                    This action cannot be undone. The user will lose access to all servers and data.
+                </p>
+                
+                <div class="modal-actions">
+                    <button type="button" class="button button-secondary" onclick="closeDeleteModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" class="button button-danger" onclick="confirmDeleteUser()">
+                        <i class="fas fa-trash"></i> Delete User
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="admin.js"></script>
+    <script>
+        // Variables for this page
+        let currentDeleteUser = null;
+
+
+
+
+
+
+
+        function openDeleteModal(username) {
+            currentDeleteUser = username;
+            document.getElementById('deleteUserName').textContent = username;
+            document.getElementById('deleteUserModal').style.display = 'block';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteUserModal').style.display = 'none';
+            currentDeleteUser = null;
+        }
+
+        async function confirmDeleteUser() {
+            if (!currentDeleteUser) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users/${currentDeleteUser}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to delete user');
+                }
+                
+                showToast('User deleted successfully', 'success');
+                closeDeleteModal();
+                loadUsers(); // Refresh the user list
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const deleteModal = document.getElementById('deleteUserModal');
+            if (event.target === deleteModal) {
+                closeDeleteModal();
+            }
+        }
+
+        // Override the displayUsers function from admin.js to use card layout
+        function displayUsers(users) {
+            const usersList = document.getElementById('users-list');
+            if (!usersList) return;
+            
+            usersList.innerHTML = '';
+            
+            users.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                userCard.innerHTML = `
+                    <div class="user-info">
+                        <div class="user-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="user-details">
+                            <h3>${user.username}</h3>
+                            <p>${user.email}</p>
+                            <span class="role-badge ${user.isAdmin ? 'admin' : 'user'}">
+                                ${user.isAdmin ? 'Admin' : 'User'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <button class="button button-small" onclick="window.location.href='a_userform.html?mode=edit&username=${user.username}'">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="button button-small button-danger" onclick="openDeleteModal('${user.username}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                `;
+                usersList.appendChild(userCard);
+            });
+        }
+
+
+
+
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load users
+            loadUsers();
+            
+            // Set up search functionality for users page
+            const searchInput = document.querySelector('.search-bar input');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const userCards = document.querySelectorAll('.user-card');
+                    userCards.forEach(card => {
+                        const username = card.querySelector('h3').textContent.toLowerCase();
+                        const email = card.querySelector('p').textContent.toLowerCase();
+                        const role = card.querySelector('.role-badge').textContent.toLowerCase();
+                        if (username.includes(searchTerm) || email.includes(searchTerm) || role.includes(searchTerm)) {
+                            card.style.display = 'flex';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+            }
+        });
+    </script>
 </body>
 </html> 

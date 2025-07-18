@@ -1,7 +1,12 @@
+// API Server configuration
+const API_BASE_URL = 'http://localhost:3001';
+
 // Function to fetch Docker container data
 async function updateServerStatus() {
     try {
-        const response = await fetch('/api/docker/containers');
+        const response = await fetch(`${API_BASE_URL}/api/docker/containers`, {
+            credentials: 'include'
+        });
         const containers = await response.json();
         
         // Only update if we're on a page with server elements
@@ -54,7 +59,9 @@ async function updateServerStatus() {
 // Server management functions
 async function loadServers() {
     try {
-        const response = await fetch('/api/servers');
+        const response = await fetch(`${API_BASE_URL}/api/servers`, {
+            credentials: 'include'
+        });
         const servers = await response.json();
         displayServers(servers);
     } catch (error) {
@@ -97,7 +104,10 @@ function createServerCard(server) {
 // Server control functions
 async function startServer(serverId) {
     try {
-        await fetch(`/api/servers/${serverId}/start`, { method: 'POST' });
+        await fetch(`${API_BASE_URL}/api/servers/${serverId}/start`, { 
+            method: 'POST',
+            credentials: 'include'
+        });
         loadServers(); // Refresh the server list
     } catch (error) {
         console.error('Error starting server:', error);
@@ -106,7 +116,10 @@ async function startServer(serverId) {
 
 async function stopServer(serverId) {
     try {
-        await fetch(`/api/servers/${serverId}/stop`, { method: 'POST' });
+        await fetch(`${API_BASE_URL}/api/servers/${serverId}/stop`, { 
+            method: 'POST',
+            credentials: 'include'
+        });
         loadServers();
     } catch (error) {
         console.error('Error stopping server:', error);
@@ -115,7 +128,10 @@ async function stopServer(serverId) {
 
 async function restartServer(serverId) {
     try {
-        await fetch(`/api/servers/${serverId}/restart`, { method: 'POST' });
+        await fetch(`${API_BASE_URL}/api/servers/${serverId}/restart`, { 
+            method: 'POST',
+            credentials: 'include'
+        });
         loadServers();
     } catch (error) {
         console.error('Error restarting server:', error);
@@ -125,7 +141,9 @@ async function restartServer(serverId) {
 // User Management Functions
 async function loadUsers() {
     try {
-        const response = await fetch('/api/users');
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch users');
         }
@@ -200,11 +218,12 @@ function addUser() {
 
 async function createUser(userData) {
     try {
-        const response = await fetch('/api/users', {
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify(userData)
         });
         
@@ -229,11 +248,12 @@ async function editUser(username) {
     const isAdmin = confirm('Make this user an admin?');
     
     try {
-        const response = await fetch(`/api/users/${username}`, {
+        const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({
                 email: newEmail || undefined,
                 isAdmin
@@ -259,8 +279,9 @@ async function deleteUser(username) {
     }
     
     try {
-        const response = await fetch(`/api/users/${username}`, {
-            method: 'DELETE'
+        const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
+            method: 'DELETE',
+            credentials: 'include'
         });
         
         if (!response.ok) {
@@ -273,6 +294,53 @@ async function deleteUser(username) {
     } catch (error) {
         console.error('Error deleting user:', error);
         showToast(error.message, 'error');
+    }
+}
+
+// Session check function
+async function checkSession() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/session`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.authenticated) {
+                return data;
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Session check error:', error);
+        return null;
+    }
+}
+
+// Logout function
+async function logout() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            // Clear any local storage or session storage if needed
+            localStorage.removeItem('user');
+            sessionStorage.clear();
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        } else {
+            console.error('Logout failed');
+            // Still redirect to login page even if logout fails
+            window.location.href = '/login.html';
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+        // Redirect to login page even if there's an error
+        window.location.href = '/login.html';
     }
 }
 
@@ -302,7 +370,15 @@ function showToast(message, type = 'info') {
 }
 
 // Initialize when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check session first
+    const session = await checkSession();
+    if (!session) {
+        // Not authenticated, redirect to login
+        window.location.href = '/login.html';
+        return;
+    }
+    
     if (window.location.pathname.includes('a_users.html')) {
         loadUsers();
         // Set up search functionality for users page

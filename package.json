@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch:all": "nodemon app.js && nodemon api-server.js && nodemon admin.js",
+    "watch:app": "nodemon app.js",
+    "watch:api": "nodemon api-server.js",
+    "watch:admin": "nodemon admin.js"
   },
   "keywords": [],
   "author": "",
@@ -22,5 +26,8 @@
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^3.3.2",
     "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }

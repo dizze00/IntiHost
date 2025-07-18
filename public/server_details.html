@@ -114,15 +114,24 @@
                             </div>
                             <div class="console-info">
                                 <i class="fas fa-info-circle"></i>
-                                <span>Real-time Docker container logs</span>
+                                <span>Real-time Docker Server Logs</span>
                             </div>
                         </div>
                         <div class="console-output" id="consoleOutput">
                             <div class="console-loading">
                                 <i class="fas fa-spinner fa-spin"></i>
                                 <span>Loading console output...</span>
+                            </div>
                         </div>
-                    </div>
+                        <div class="console-input-container">
+                            <div class="console-input-wrapper">
+                                <span class="console-prompt">$</span>
+                                <input type="text" id="consoleInput" class="console-input" placeholder="Enter command." autocomplete="off" style="color: rgb(212, 252, 255);">
+                                <button onclick="sendConsoleCommand()" class="console-send-btn">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -557,28 +566,31 @@
                         const uptime = container.status.split('Up ')[1].split(' (')[0];
                         serverUptime.textContent = `Uptime: ${uptime}`;
                     } else {
-                        serverUptime.textContent = 'Uptime: Stopped';
+                        serverUptime.textContent = 'Uptime: Offline';
                     }
                 }
+                
+                // Update console input state based on server status
+                updateConsoleInputState();
 
             } catch (error) {
                 console.error('Error:', error);
                 const serverStatusBadge = document.getElementById('serverStatusBadge');
                 if (serverStatusBadge) {
-                    serverStatusBadge.innerHTML = '<i class="fas fa-circle"></i> Stopped';
+                    serverStatusBadge.innerHTML = '<i class="fas fa-circle"></i> Offline';
                     serverStatusBadge.className = 'status-badge stopped';
                 }
                 
                 const serverUptime = document.getElementById('serverUptime');
                 if (serverUptime) {
-                    serverUptime.textContent = 'Uptime: Stopped';
+                    serverUptime.textContent = 'Uptime: Offline';
                 }
             }
         }
 
         function getSimpleStatus(status) {
             if (status.includes('Up')) return 'Running';
-            if (status.includes('Exited')) return 'Stopped';
+            if (status.includes('Exited')) return 'Offline';
             return 'Unknown';
         }
 
@@ -666,12 +678,18 @@
                 fileUpload.addEventListener('change', handleFileUpload);
             }
 
+            // Initialize dropdown debugging
+
+
             // Start auto-refresh
             updateServerInfo();
             const updateInterval = setInterval(updateServerInfo, 5000);
 
             // Auto-refresh console on page load
             refreshConsole();
+            
+            // Update console input state
+            updateConsoleInputState();
 
             // Cleanup on page unload
             window.addEventListener('unload', () => {
@@ -721,6 +739,67 @@
             // Show/hide custom IP group
             toggleCustomIpGroup(savedIpType);
         }
+
+        // --- DROPDOWN LOGIC ---
+        function toggleDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            if (dropdown) {
+                const wasOpen = dropdown.classList.contains('open');
+                dropdown.classList.toggle('open');
+                const isNowOpen = dropdown.classList.contains('open');
+                
+                console.log(`Dropdown ${dropdownId}: was open: ${wasOpen}, now open: ${isNowOpen}`);
+                
+                // Force a repaint to ensure the dropdown shows
+                dropdown.style.display = 'block';
+                dropdown.offsetHeight; // Trigger reflow
+                
+                // Check if options are visible
+                const options = dropdown.querySelector('.dropdown-options');
+                if (options) {
+                    const computedStyle = window.getComputedStyle(options);
+                    console.log('Options element found:');
+                    console.log('- display:', options.style.display, 'computed:', computedStyle.display);
+                    console.log('- visibility:', computedStyle.visibility);
+                    console.log('- opacity:', computedStyle.opacity);
+                    console.log('- z-index:', computedStyle.zIndex);
+                    console.log('- position:', computedStyle.position);
+                    console.log('- top:', computedStyle.top);
+                    console.log('- left:', computedStyle.left);
+                    console.log('- width:', computedStyle.width);
+                    console.log('- height:', computedStyle.height);
+                }
+            } else {
+                console.error('Dropdown element not found:', dropdownId);
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdowns = document.querySelectorAll('.custom-dropdown');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.contains(event.target)) {
+                    dropdown.classList.remove('open');
+                }
+            });
+        });
+
+        function selectOption(dropdownId, value, label) {
+            const dropdown = document.getElementById(dropdownId);
+            if (dropdown) {
+                const selectedElement = dropdown.querySelector('.dropdown-selected');
+                const hiddenInput = dropdown.querySelector('input[type="hidden"]');
+                
+                if (selectedElement) selectedElement.textContent = label;
+                if (hiddenInput) hiddenInput.value = value;
+                
+                dropdown.classList.remove('open');
+                toggleCustomIpGroup(value);
+            } else {
+                console.error('Dropdown element not found for selection:', dropdownId);
+            }
+        }
+        // --- END DROPDOWN LOGIC ---
 
         function toggleCustomIpGroup(ipType) {
             const customIpGroup = document.getElementById('customIpGroup');
@@ -824,6 +903,119 @@
                 showToast('Failed to copy server IP', 'error');
             }
         }
+
+        // Console Input Functions
+        async function sendConsoleCommand() {
+            // Check if server is running before allowing commands
+            const isServerRunning = await checkServerStatus();
+            if (!isServerRunning) {
+                showToast('Cannot send commands: Server is offline', 'error');
+                return;
+            }
+            
+            const input = document.getElementById('consoleInput');
+            const command = input.value.trim();
+            
+            if (!command) return;
+            
+            try {
+                // Clear the input immediately
+                input.value = '';
+                
+                // Show sending indicator
+                const sendBtn = document.querySelector('.console-send-btn');
+                const originalIcon = sendBtn.innerHTML;
+                sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                sendBtn.disabled = true;
+                
+                // Execute the RCON command
+                const response = await fetch(`${serverUrl}/api/servers/${serverName}/rcon`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        command: `docker exec -i ${serverName} rcon-cli ${command}`
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to execute command');
+                }
+                
+                const result = await response.json();
+                
+                // Show success message
+                showToast('Command executed successfully', 'success');
+                
+                // Refresh console output to show the result
+                setTimeout(() => {
+                    loadConsole();
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error executing command:', error);
+                showToast('Failed to execute command: ' + error.message, 'error');
+            } finally {
+                // Restore send button
+                const sendBtn = document.querySelector('.console-send-btn');
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                sendBtn.disabled = false;
+            }
+        }
+
+        // Check if server is running
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${serverUrl}/api/docker/containers`);
+                if (!response.ok) return false;
+                
+                const containers = await response.json();
+                const container = containers.find(c => c.name === serverName);
+                
+                return container && container.State === 'running';
+            } catch (error) {
+                console.error('Error checking server status:', error);
+                return false;
+            }
+        }
+
+        // Update console input state based on server status
+        async function updateConsoleInputState() {
+            const input = document.getElementById('consoleInput');
+            const sendBtn = document.querySelector('.console-send-btn');
+            
+            if (!input || !sendBtn) return;
+            
+            const isRunning = await checkServerStatus();
+            
+            if (isRunning) {
+                input.disabled = false;
+                input.placeholder = 'Enter command.';
+                sendBtn.disabled = false;
+                input.style.opacity = '1';
+                sendBtn.style.opacity = '1';
+            } else {
+                input.disabled = true;
+                input.placeholder = 'Server is offline';
+                sendBtn.disabled = true;
+                input.style.opacity = '0.5';
+                sendBtn.style.opacity = '0.5';
+            }
+        }
+
+        // Handle Enter key in console input
+        document.addEventListener('DOMContentLoaded', function() {
+            const consoleInput = document.getElementById('consoleInput');
+            if (consoleInput) {
+                consoleInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        sendConsoleCommand();
+                    }
+                });
+            }
+        });
     </script>
 
     <style>
@@ -914,6 +1106,7 @@
             height: 500px;
             overflow-y: auto;
             font-size: 0.9rem;
+            font-weight: 600;
             line-height: 1.6;
             position: relative;
         }
@@ -1321,6 +1514,70 @@
             font-size: 0.8rem;
         }
 
+        /* Console Input Styles */
+        .console-input-container {
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-card);
+            padding: 1rem;
+        }
+
+        .console-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+        }
+
+        .console-prompt {
+            color: var(--primary-color);
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+        }
+
+        .console-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            outline: none;
+            padding: 0.5rem 0;
+        }
+
+        .console-input::placeholder {
+            color: #080808;
+            opacity: 1;
+            font-weight: 600;
+        }
+
+        .console-send-btn {
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .console-send-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .console-send-btn:active {
+            transform: translateY(0);
+        }
+
         /* Status Badge Styles */
         .status-badge {
             display: flex;
@@ -1384,6 +1641,89 @@
                 text-align: center;
             }
         }
+    </style>
+    <style>
+    /* Custom Dropdown Styles */
+    .custom-dropdown {
+      position: relative;
+      cursor: pointer;
+      min-width: 200px;
+      display: inline-block;
+      margin: 10px 0;
+    }
+    
+    /* Ensure form-group doesn't clip dropdown */
+    .form-group .custom-dropdown {
+      overflow: visible;
+    }
+    
+    /* Force dropdown options to be visible when open */
+    .form-group .custom-dropdown.open .dropdown-options {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+    .custom-dropdown .dropdown-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      min-width: 160px;
+      color: var(--text-primary);
+      transition: all 0.3s ease;
+    }
+    .custom-dropdown .dropdown-header:hover {
+      background: var(--bg-card);
+      border-color: var(--primary-color);
+    }
+    .custom-dropdown .dropdown-selected {
+      font-weight: 500;
+    }
+    .custom-dropdown .dropdown-arrow {
+      margin-left: 8px;
+      transition: transform 0.3s ease;
+      color: var(--text-secondary);
+    }
+    .custom-dropdown.open .dropdown-arrow {
+      transform: rotate(180deg);
+    }
+    .custom-dropdown .dropdown-options {
+      display: none;
+      position: absolute;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      z-index: 9999;
+      width: 100%;
+      left: 0;
+      top: calc(100% + 5px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      overflow: hidden;
+      min-width: 200px;
+    }
+    .custom-dropdown.open .dropdown-options {
+      display: block !important;
+    }
+    .custom-dropdown .dropdown-option {
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .custom-dropdown .dropdown-option:last-child {
+      border-bottom: none;
+    }
+    .custom-dropdown .dropdown-option:hover {
+      background: var(--gradient-primary);
+      color: white;
+    }
+    .custom-dropdown .dropdown-option:active {
+      transform: scale(0.98);
+    }
     </style>
 </body>
 </html> 
