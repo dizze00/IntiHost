@@ -7,6 +7,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .request-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .request-status.pending {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #8b6914;
+        }
+        
+        .request-status.approved {
+            background: linear-gradient(135deg, #4caf50, #66bb6a);
+            color: white;
+        }
+        
+        .request-status.rejected {
+            background: linear-gradient(135deg, #f44336, #ef5350);
+            color: white;
+        }
+    </style>
 </head>
 <body>
     <div class="admin-container">
@@ -109,18 +134,53 @@
 
     <script src="admin.js"></script>
     <script>
-        // Load requests when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            loadRequests();
+        // API configuration (in case admin.js doesn't load properly)
+        const API_BASE_URL = 'http://localhost:3001';
+        
+        // Check authentication and load requests when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isAuthenticated = await checkAuth();
+            if (isAuthenticated) {
+                loadRequests();
+            }
         });
 
-        // API Server configuration
-        const API_BASE_URL = 'http://localhost:3001';
+        // Check authentication
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/session`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    console.log('Not authenticated, redirecting to login');
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                
+                const sessionData = await response.json();
+                if (!sessionData.isAdmin) {
+                    console.log('Not admin, redirecting to dashboard');
+                    window.location.href = 'dashboard.html';
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = 'login.html';
+                return false;
+            }
+        }
+
+        // API Server configuration is already defined in admin.js
 
         // Function to load server requests
         async function loadRequests() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/server-requests`);
+                const response = await fetch(`${API_BASE_URL}/api/server-requests`, {
+                    credentials: 'include'
+                });
                 if (!response.ok) {
                     throw new Error('Failed to fetch requests');
                 }
@@ -148,11 +208,67 @@
             requestsGrid.innerHTML = '';
 
             requests.forEach(request => {
+                // Determine status class and text
+                let statusClass = 'pending';
+                let statusText = 'Pending';
+                
+                if (request.status === 'approved') {
+                    statusClass = 'approved';
+                    statusText = 'Approved';
+                } else if (request.status === 'rejected') {
+                    statusClass = 'rejected';
+                    statusText = 'Rejected';
+                }
+
+                // Show action buttons only for pending requests
+                const actionButtons = request.status === 'pending' ? `
+                    <div class="request-actions">
+                        <button onclick="approveRequest('${request.id}')" class="button button-success">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                        <button onclick="rejectRequest('${request.id}')" class="button button-danger">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                    </div>
+                ` : '';
+
+                // Add additional details for processed requests
+                let additionalDetails = '';
+                if (request.status === 'approved' && request.approvedBy) {
+                    additionalDetails += `
+                        <div class="detail-item">
+                            <i class="fas fa-user-check"></i>
+                            <span><strong>Approved by:</strong> ${request.approvedBy}</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-calendar-check"></i>
+                            <span><strong>Approved:</strong> ${new Date(request.updatedAt).toLocaleDateString()}</span>
+                        </div>
+                    `;
+                } else if (request.status === 'rejected') {
+                    additionalDetails += `
+                        <div class="detail-item">
+                            <i class="fas fa-user-times"></i>
+                            <span><strong>Rejected by:</strong> ${request.rejectedBy || 'Admin'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-calendar-times"></i>
+                            <span><strong>Rejected:</strong> ${new Date(request.updatedAt).toLocaleDateString()}</span>
+                        </div>
+                        ${request.rejectionReason ? `
+                        <div class="detail-item">
+                            <i class="fas fa-comment"></i>
+                            <span><strong>Reason:</strong> ${request.rejectionReason}</span>
+                        </div>
+                        ` : ''}
+                    `;
+                }
+
                 const requestCard = `
                     <div class="request-card" data-id="${request.id}">
                         <div class="request-header">
                             <h3>${request.serverName}</h3>
-                            <span class="request-status pending">Pending</span>
+                            <span class="request-status ${statusClass}">${statusText}</span>
                         </div>
                         <div class="request-details">
                             <div class="detail-item">
@@ -183,15 +299,9 @@
                                 <span><strong>Additional Users:</strong> ${request.additionalUsers.join(', ')}</span>
                             </div>
                             ` : ''}
+                            ${additionalDetails}
                         </div>
-                        <div class="request-actions">
-                            <button onclick="approveRequest('${request.id}')" class="button button-success">
-                                <i class="fas fa-check"></i> Approve
-                            </button>
-                            <button onclick="rejectRequest('${request.id}')" class="button button-danger">
-                                <i class="fas fa-times"></i> Reject
-                            </button>
-                        </div>
+                        ${actionButtons}
                     </div>
                 `;
                 requestsGrid.innerHTML += requestCard;

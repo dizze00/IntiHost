@@ -130,31 +130,98 @@ apiRouter.get('/test', (req, res) => {
 
 // Docker container routes
 apiRouter.get('/docker/containers', (req, res) => {
-    exec('docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"', (error, stdout, stderr) => {
+    exec('docker ps -a', (error, stdout, stderr) => {
         if (error) return res.status(500).json({ error: 'Failed to fetch containers' });
         try {
             if (!stdout.trim()) return res.json([]);
-            const containers = stdout.trim().split('\n').map(line => {
-                const [id, name, status, ports] = line.split('\t');
-                return { id, name, status, ports };
-            });
+            
+            // Parse the docker ps output manually
+            const lines = stdout.trim().split('\n');
+            const containers = [];
+            
+            // Skip the header lines
+            let i = 0;
+            while (i < lines.length && (lines[i].includes('CONTAINER ID') || lines[i].trim() === '')) {
+                i++;
+            }
+            
+            // Process the actual container data
+            for (; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // Use regex to extract the container ID and name
+                const idMatch = line.match(/^([a-f0-9]{12})/);
+                const nameMatch = line.match(/([a-zA-Z0-9_-]+)$/);
+                
+                if (idMatch && nameMatch) {
+                    const id = idMatch[1];
+                    const name = nameMatch[1];
+                    
+                    // Extract status (everything between the last timestamp and the name)
+                    const statusMatch = line.match(/(\d+ \w+ ago)\s+(.+?)\s+([a-zA-Z0-9_-]+)$/);
+                    const status = statusMatch ? statusMatch[2].trim() : 'Unknown';
+                    
+                    containers.push({ id, name, status, ports: '' });
+                }
+            }
 
             // Get server information from database to add creator info
             const dbServers = db.data.servers || [];
             
-            // Merge Docker container data with database server data
-            const enrichedContainers = containers.map(container => {
-                const dbServer = dbServers.find(server => server.name === container.name);
-                return {
-                    ...container,
-                    createdBy: dbServer ? dbServer.createdBy : 'Unknown',
-                    description: dbServer ? dbServer.description : '',
-                    version: dbServer ? dbServer.version : 'Unknown',
-                    type: dbServer ? dbServer.type : 'Unknown'
-                };
+            // Process containers and get port information for stopped containers
+            const processContainers = async () => {
+                const enrichedContainers = [];
+                
+                for (const container of containers) {
+                    let finalPorts = container.ports;
+                    
+                    // If ports are empty or show "None", try to get them from container inspection
+                    if (!container.ports || container.ports.trim() === '' || container.ports === 'None') {
+                        try {
+                            const portInfo = await new Promise((resolve, reject) => {
+                                exec(`docker inspect ${container.id} --format "{{json .HostConfig.PortBindings}}"`, (error, stdout) => {
+                                    if (error) reject(error);
+                                    else resolve(stdout.trim());
+                                });
+                            });
+                            
+                            if (portInfo && portInfo !== 'null') {
+                                const portBindings = JSON.parse(portInfo);
+                                const portEntries = Object.entries(portBindings);
+                                if (portEntries.length > 0) {
+                                    const [containerPort, hostBindings] = portEntries[0];
+                                    const hostPort = hostBindings[0]?.HostPort;
+                                    if (hostPort) {
+                                        finalPorts = `${hostPort}->${containerPort}`;
+                                    }
+                                }
+                            }
+                        } catch (inspectError) {
+                            console.log(`Could not get port info for container ${container.name}:`, inspectError.message);
+                        }
+                    }
+                    
+                    const dbServer = dbServers.find(server => server.name === container.name);
+                    enrichedContainers.push({
+                        ...container,
+                        ports: finalPorts,
+                        createdBy: dbServer ? dbServer.createdBy : 'Unknown',
+                        description: dbServer ? dbServer.description : '',
+                        version: dbServer ? dbServer.version : 'Unknown',
+                        type: dbServer ? dbServer.type : 'Unknown'
+                    });
+                }
+                
+                return enrichedContainers;
+            };
+            
+            processContainers().then(enrichedContainers => {
+                res.json(enrichedContainers);
+            }).catch(error => {
+                res.status(500).json({ error: 'Failed to process containers' });
             });
-
-            res.json(enrichedContainers);
+            
         } catch (error) {
             res.status(500).json({ error: 'Failed to parse Docker output' });
         }

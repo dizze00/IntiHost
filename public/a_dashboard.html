@@ -173,7 +173,7 @@
         console.log('Current port:', window.location.port);
         console.log('Server URL:', serverUrl);
 
-        // Check authentication on page load
+        // Check authentication on page load (non-blocking)
         async function checkAuth() {
             try {
                 const response = await fetch(`${serverUrl}/api/dashboard/stats`, {
@@ -181,14 +181,12 @@
                 });
                 
                 if (response.status === 401) {
-                    // Not authenticated, redirect to login
-                    window.location.href = '/login.html';
+                    // Not authenticated, but don't redirect - just return false
                     return false;
                 }
                 return true;
             } catch (error) {
                 console.error('Auth check failed:', error);
-                window.location.href = '/login.html';
                 return false;
             }
         }
@@ -267,10 +265,8 @@
 
         // Load stats on page load
         document.addEventListener('DOMContentLoaded', async () => {
-            const isAuthenticated = await checkAuth();
-            if (isAuthenticated) {
-                loadStats();
-            }
+            // Load stats without blocking on authentication
+            loadStats();
         });
     </script>
 

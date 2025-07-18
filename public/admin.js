@@ -59,7 +59,7 @@ async function updateServerStatus() {
 // Server management functions
 async function loadServers() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/servers`, {
+        const response = await fetch(`${API_BASE_URL}/api/docker/containers`, {
             credentials: 'include'
         });
         const servers = await response.json();
@@ -71,6 +71,14 @@ async function loadServers() {
 
 function displayServers(servers) {
     const serverGrid = document.querySelector('.server-grid');
+    if (!serverGrid) {
+        // Only log if we're on a page that should have servers
+        if (window.location.pathname.includes('servers') || window.location.pathname.includes('dashboard')) {
+            console.log('Server grid not found on this page');
+        }
+        return;
+    }
+    
     serverGrid.innerHTML = '';
 
     servers.forEach(server => {
@@ -88,23 +96,24 @@ function createServerCard(server) {
             <span class="status ${server.status.toLowerCase()}">${server.status}</span>
         </div>
         <div class="server-info">
-            <p><i class="fas fa-microchip"></i> CPU: ${server.cpu}%</p>
-            <p><i class="fas fa-memory"></i> RAM: ${server.ram}%</p>
-            <p><i class="fas fa-hdd"></i> Storage: ${server.storage}%</p>
+            <p><i class="fas fa-server"></i> Type: ${server.type}</p>
+            <p><i class="fas fa-code-branch"></i> Version: ${server.version}</p>
+            <p><i class="fas fa-network-wired"></i> Ports: ${server.ports || 'None'}</p>
+            <p><i class="fas fa-user"></i> Created by: ${server.createdBy}</p>
         </div>
         <div class="server-actions">
-            <button onclick="startServer('${server.id}')" class="button">Start</button>
-            <button onclick="stopServer('${server.id}')" class="button">Stop</button>
-            <button onclick="restartServer('${server.id}')" class="button">Restart</button>
+            <button onclick="startServer('${server.name}')" class="button">Start</button>
+            <button onclick="stopServer('${server.name}')" class="button">Stop</button>
+            <button onclick="restartServer('${server.name}')" class="button">Restart</button>
         </div>
     `;
     return card;
 }
 
 // Server control functions
-async function startServer(serverId) {
+async function startServer(serverName) {
     try {
-        await fetch(`${API_BASE_URL}/api/servers/${serverId}/start`, { 
+        await fetch(`${API_BASE_URL}/api/docker/containers/${serverName}/start`, { 
             method: 'POST',
             credentials: 'include'
         });
@@ -114,9 +123,9 @@ async function startServer(serverId) {
     }
 }
 
-async function stopServer(serverId) {
+async function stopServer(serverName) {
     try {
-        await fetch(`${API_BASE_URL}/api/servers/${serverId}/stop`, { 
+        await fetch(`${API_BASE_URL}/api/docker/containers/${serverName}/stop`, { 
             method: 'POST',
             credentials: 'include'
         });
@@ -126,9 +135,9 @@ async function stopServer(serverId) {
     }
 }
 
-async function restartServer(serverId) {
+async function restartServer(serverName) {
     try {
-        await fetch(`${API_BASE_URL}/api/servers/${serverId}/restart`, { 
+        await fetch(`${API_BASE_URL}/api/docker/containers/${serverName}/restart`, { 
             method: 'POST',
             credentials: 'include'
         });
@@ -371,14 +380,7 @@ function showToast(message, type = 'info') {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', async () => {
-    // Check session first
-    const session = await checkSession();
-    if (!session) {
-        // Not authenticated, redirect to login
-        window.location.href = '/login.html';
-        return;
-    }
-    
+    // Load content without forcing authentication check
     if (window.location.pathname.includes('a_users.html')) {
         loadUsers();
         // Set up search functionality for users page

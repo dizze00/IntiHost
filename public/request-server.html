@@ -18,6 +18,10 @@
                 <i class="fas fa-home"></i>
                 <span>Dashboard</span>
             </a>
+            <a href="servers.html" class="menu-item">
+                <i class="fas fa-server"></i>
+                <span>Servers</span>
+            </a>
             <a href="settings.html" class="menu-item">
                 <i class="fas fa-cog"></i>
                 <span>Settings</span>
@@ -47,12 +51,37 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="server-type">
+                        <i class="fas fa-layer-group"></i> Server Type
+                    </label>
+                    <select id="server-type" name="serverType" required onchange="toggleVersionField()">
+                        <option value="">Select type</option>
+                        <option value="minecraft">Minecraft</option>
+                        <option value="web">Web Server</option>
+                        <option value="database">Database</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="version-group" style="display: none;">
                     <label for="server-version">
                         <i class="fas fa-code-branch"></i> Minecraft Version
                     </label>
-                    <select id="server-version" name="serverVersion" required>
+                    <select id="server-version" name="serverVersion">
                         <option value="">Select version</option>
-                        <option value="1.20.4">1.20.4 (Latest)</option>
+                        <option value="LATEST">Latest Stable (Recommended)</option>
+                        <option value="SNAPSHOT">Latest Snapshot</option>
+                        <option value="1.21.8">1.21.8</option>
+                        <option value="1.21.7">1.21.7</option>
+                        <option value="1.21.6">1.21.6</option>
+                        <option value="1.21.5">1.21.5</option>
+                        <option value="1.21.4">1.21.4</option>
+                        <option value="1.21.3">1.21.3</option>
+                        <option value="1.21.2">1.21.2</option>
+                        <option value="1.21.1">1.21.1</option>
+                        <option value="1.21">1.21</option>
+                        <option value="1.20.6">1.20.6</option>
+                        <option value="1.20.5">1.20.5</option>
+                        <option value="1.20.4">1.20.4</option>
                         <option value="1.20.3">1.20.3</option>
                         <option value="1.20.2">1.20.2</option>
                         <option value="1.20.1">1.20.1</option>
@@ -99,29 +128,10 @@
                         <option value="1.9.1">1.9.1</option>
                         <option value="1.9">1.9</option>
                         <option value="1.8.9">1.8.9</option>
-                        <option value="1.8.8">1.8.8</option>
-                        <option value="1.8.7">1.8.7</option>
-                        <option value="1.8.6">1.8.6</option>
-                        <option value="1.8.5">1.8.5</option>
-                        <option value="1.8.4">1.8.4</option>
-                        <option value="1.8.3">1.8.3</option>
-                        <option value="1.8.2">1.8.2</option>
-                        <option value="1.8.1">1.8.1</option>
-                        <option value="1.8">1.8</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="server-type">
-                        <i class="fas fa-layer-group"></i> Server Type
-                    </label>
-                    <select id="server-type" name="serverType" required>
-                        <option value="">Select type</option>
-                        <option value="vanilla">Vanilla</option>
-                        <option value="paper">Paper (Recommended)</option>
-                        <option value="spigot">Spigot</option>
-                        <option value="forge">Forge</option>
-                        <option value="fabric">Fabric</option>
+                        <option value="1.7.10">1.7.10</option>
+                        <option value="1.7.9">1.7.9</option>
+                        <option value="b1.7.3">Beta 1.7.3</option>
+                        <option value="a1.2.6">Alpha 1.2.6</option>
                     </select>
                 </div>
 
@@ -155,20 +165,65 @@
     </div>
 
     <script>
+        // Function to toggle version field based on server type
+        function toggleVersionField() {
+            const serverType = document.getElementById('server-type').value;
+            const versionGroup = document.getElementById('version-group');
+            const serverVersion = document.getElementById('server-version');
+            
+            if (serverType === 'minecraft') {
+                versionGroup.style.display = 'block';
+                serverVersion.required = true;
+            } else {
+                versionGroup.style.display = 'none';
+                serverVersion.required = false;
+                serverVersion.value = '';
+            }
+        }
+
+        // Check authentication on page load
+        async function checkAuth() {
+            try {
+                const response = await fetch('http://localhost:3001/api/session', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    // Not authenticated, redirect to login
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                return true;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = 'login.html';
+                return false;
+            }
+        }
+
         document.getElementById('server-request-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const formData = new FormData(e.target);
+            const serverType = formData.get('serverType');
+            const serverVersion = formData.get('serverVersion');
+            
+            // Validate that version is provided for Minecraft servers
+            if (serverType === 'minecraft' && !serverVersion) {
+                showToast('Please select a Minecraft version', 'error');
+                return;
+            }
+            
             const requestData = {
                 serverName: formData.get('serverName'),
-                serverVersion: formData.get('serverVersion'),
-                serverType: formData.get('serverType'),
+                serverVersion: serverType === 'minecraft' ? serverVersion : 'N/A',
+                serverType: serverType,
                 description: formData.get('description'),
                 additionalUsers: formData.get('additionalUsers').split(',').map(u => u.trim()).filter(u => u)
             };
 
             try {
-                const response = await fetch('/api/server-requests', {
+                const response = await fetch('http://localhost:3001/api/server-requests', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -179,16 +234,37 @@
 
                 if (response.ok) {
                     showToast('Server request submitted successfully!', 'success');
+                    // Wait a bit longer to ensure the request is processed
                     setTimeout(() => {
-                        window.location.href = 'dashboard.html';
-                    }, 2000);
+                        // Check if we're still authenticated before redirecting
+                        fetch('http://localhost:3001/api/session', {
+                            credentials: 'include'
+                        }).then(sessionResponse => {
+                            if (sessionResponse.ok) {
+                                window.location.href = 'dashboard.html';
+                            } else {
+                                // Session expired, redirect to login
+                                window.location.href = 'login.html';
+                            }
+                        }).catch(() => {
+                            // If session check fails, redirect to login
+                            window.location.href = 'login.html';
+                        });
+                    }, 3000);
                 } else {
                     const error = await response.json();
-                    showToast(error.error || 'Failed to submit request', 'error');
+                    if (response.status === 401) {
+                        showToast('Session expired. Please log in again.', 'error');
+                        setTimeout(() => {
+                            window.location.href = 'login.html';
+                        }, 2000);
+                    } else {
+                        showToast(error.error || 'Failed to submit request', 'error');
+                    }
                 }
             } catch (error) {
                 console.error('Error submitting request:', error);
-                showToast('Failed to submit request', 'error');
+                showToast('Failed to submit request. Please try again.', 'error');
             }
         });
 
@@ -212,6 +288,11 @@
                 }, 300);
             }, 3000);
         }
+
+        // Check authentication when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
     </script>
 </body>
 </html> 

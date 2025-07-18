@@ -85,12 +85,19 @@ const requireAuth = (req, res, next) => {
 };
 
 const requireAdmin = (req, res, next) => {
+    console.log('requireAdmin middleware - Session data:', req.session);
+    console.log('Authenticated:', req.session.authenticated);
+    console.log('Is Admin:', req.session.isAdmin);
+    
     if (!req.session.authenticated) {
+        console.log('Not authenticated, returning 401');
         return res.status(401).json({ error: 'Not authenticated' });
     }
     if (!req.session.isAdmin) {
+        console.log('Not admin, returning 403');
         return res.status(403).json({ error: 'Not authorized' });
     }
+    console.log('Admin check passed, proceeding');
     next();
 };
 
@@ -156,6 +163,7 @@ app.post('/api/login', async (req, res) => {
 
 // Session check endpoint
 app.get('/api/session', (req, res) => {
+    console.log('Session check - Session data:', req.session);
     if (req.session.authenticated) {
         res.json({
             authenticated: true,
@@ -190,29 +198,97 @@ app.post('/api/logout', (req, res) => {
 
 // Docker container routes
 app.get('/api/docker/containers', (req, res) => {
-    exec('docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"', (error, stdout, stderr) => {
+    exec('docker ps -a --no-trunc', (error, stdout, stderr) => {
         if (error) return res.status(500).json({ error: 'Failed to fetch containers' });
         try {
             if (!stdout.trim()) return res.json([]);
-            const containers = stdout.trim().split('\n').map(line => {
-                const [id, name, status, ports] = line.split('\t');
-                return { id, name, status, ports };
-            });
+            
+            // Parse the docker ps output manually
+            const lines = stdout.trim().split('\n');
+            const containers = [];
+            
+            // Skip the header lines
+            let i = 0;
+            while (i < lines.length && (lines[i].includes('CONTAINER ID') || lines[i].trim() === '')) {
+                i++;
+            }
+            
+            // Process the actual container data
+            for (; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // Use regex to extract the container ID and name
+                const idMatch = line.match(/^([a-f0-9]{12})/);
+                const nameMatch = line.match(/([a-zA-Z0-9_-]+)$/);
+                
+                if (idMatch && nameMatch) {
+                    const id = idMatch[1];
+                    const name = nameMatch[1];
+                    
+                    // Extract status (everything between the last timestamp and the name)
+                    const statusMatch = line.match(/(\d+ \w+ ago)\s+(.+?)\s+([a-zA-Z0-9_-]+)$/);
+                    const status = statusMatch ? statusMatch[2].trim() : 'Unknown';
+                    
+                    containers.push({ id, name, status, ports: '' });
+                }
+            }
 
             const dbServers = db.data.servers || [];
             
-            const enrichedContainers = containers.map(container => {
-                const dbServer = dbServers.find(server => server.name === container.name);
-                return {
-                    ...container,
-                    createdBy: dbServer ? dbServer.createdBy : 'Unknown',
-                    description: dbServer ? dbServer.description : '',
-                    version: dbServer ? dbServer.version : 'Unknown',
-                    type: dbServer ? dbServer.type : 'Unknown'
-                };
+            // Process containers and get port information for stopped containers
+            const processContainers = async () => {
+                const enrichedContainers = [];
+                
+                for (const container of containers) {
+                    let finalPorts = container.ports;
+                    
+                    // If ports are empty or show "None", try to get them from container inspection
+                    if (!container.ports || container.ports.trim() === '' || container.ports === 'None') {
+                        try {
+                            const portInfo = await new Promise((resolve, reject) => {
+                                exec(`docker inspect ${container.id} --format "{{json .HostConfig.PortBindings}}"`, (error, stdout) => {
+                                    if (error) reject(error);
+                                    else resolve(stdout.trim());
+                                });
+                            });
+                            
+                            if (portInfo && portInfo !== 'null') {
+                                const portBindings = JSON.parse(portInfo);
+                                const portEntries = Object.entries(portBindings);
+                                if (portEntries.length > 0) {
+                                    const [containerPort, hostBindings] = portEntries[0];
+                                    const hostPort = hostBindings[0]?.HostPort;
+                                    if (hostPort) {
+                                        finalPorts = `${hostPort}->${containerPort}`;
+                                    }
+                                }
+                            }
+                        } catch (inspectError) {
+                            console.log(`Could not get port info for container ${container.name}:`, inspectError.message);
+                        }
+                    }
+                    
+                    const dbServer = dbServers.find(server => server.name === container.name);
+                    enrichedContainers.push({
+                        ...container,
+                        ports: finalPorts,
+                        createdBy: dbServer ? dbServer.createdBy : 'Unknown',
+                        description: dbServer ? dbServer.description : '',
+                        version: dbServer ? dbServer.version : 'Unknown',
+                        type: dbServer ? dbServer.type : 'Unknown'
+                    });
+                }
+                
+                return enrichedContainers;
+            };
+            
+            processContainers().then(enrichedContainers => {
+                res.json(enrichedContainers);
+            }).catch(error => {
+                res.status(500).json({ error: 'Failed to process containers' });
             });
-
-            res.json(enrichedContainers);
+            
         } catch (error) {
             res.status(500).json({ error: 'Failed to parse Docker output' });
         }
@@ -427,9 +503,59 @@ app.delete('/api/users/:username', requireAdmin, async (req, res) => {
 });
 
 // Server requests endpoints
+app.post('/api/server-requests', requireAuth, async (req, res) => {
+    try {
+        console.log('Server request received:', req.body);
+        console.log('Session data:', req.session);
+        console.log('User authenticated:', req.session.authenticated);
+        console.log('Username:', req.session.username);
+
+        const { serverName, serverVersion, serverType, description, additionalUsers } = req.body;
+        
+        // Validate required fields
+        if (!serverName || !serverType) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Create new request
+        const newRequest = {
+            id: Date.now().toString(),
+            serverName,
+            serverVersion: serverVersion || 'N/A',
+            serverType,
+            description: description || '',
+            additionalUsers: additionalUsers || [],
+            requestedBy: req.session.username,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        console.log('Creating new request:', newRequest);
+
+        // Add to database
+        if (!db.data.serverRequests) {
+            db.data.serverRequests = [];
+        }
+        db.data.serverRequests.push(newRequest);
+        await db.write();
+
+        console.log('Request saved successfully');
+        res.status(201).json(newRequest);
+    } catch (error) {
+        console.error('Error creating server request:', error);
+        res.status(500).json({ error: 'Error creating server request' });
+    }
+});
+
 app.get('/api/server-requests', requireAdmin, async (req, res) => {
+    console.log('Server requests endpoint hit - Session data:', req.session);
+    console.log('User authenticated:', req.session.authenticated);
+    console.log('User is admin:', req.session.isAdmin);
+    
     try {
         const requests = db.data.serverRequests || [];
+        console.log('Found requests:', requests);
         res.json(requests);
     } catch (error) {
         console.error('Error fetching server requests:', error);
@@ -438,6 +564,11 @@ app.get('/api/server-requests', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/server-requests/:id/approve', requireAdmin, async (req, res) => {
+    console.log('Approve request endpoint hit - Session data:', req.session);
+    console.log('User authenticated:', req.session.authenticated);
+    console.log('User is admin:', req.session.isAdmin);
+    console.log('Username:', req.session.username);
+    
     try {
         const { id } = req.params;
         const requests = db.data.serverRequests || [];
@@ -578,6 +709,133 @@ app.post('/api/servers/:serverName/rcon', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('RCON endpoint error:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User profile endpoint
+app.get('/api/user/profile', requireAuth, async (req, res) => {
+    try {
+        const user = db.data.users.find(u => u.username === req.session.username);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        res.json({
+            username: user.username,
+            email: user.email || 'No email set',
+            isAdmin: Boolean(user.isAdmin)
+        });
+    } catch (error) {
+        console.error('Error fetching user profile:', error);
+        res.status(500).json({ error: 'Error fetching user profile' });
+    }
+});
+
+// User servers endpoint
+app.get('/api/user/servers', requireAuth, async (req, res) => {
+    try {
+        const servers = db.data.servers || [];
+        // Filter servers that the user has access to
+        const userServers = servers.filter(server => 
+            server.users && server.users.includes(req.session.username)
+        );
+        
+        res.json(userServers);
+    } catch (error) {
+        console.error('Error fetching user servers:', error);
+        res.status(500).json({ error: 'Error fetching user servers' });
+    }
+});
+
+// Server control endpoints
+app.post('/api/server/:serverId/start', requireAuth, async (req, res) => {
+    try {
+        const { serverId } = req.params;
+        const servers = db.data.servers || [];
+        const serverIndex = servers.findIndex(s => s.id === serverId);
+        
+        if (serverIndex === -1) {
+            return res.status(404).json({ error: 'Server not found' });
+        }
+        
+        const server = servers[serverIndex];
+        // Check if user has access to this server
+        if (!server.users || !server.users.includes(req.session.username)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // Update server status
+        server.status = 'running';
+        server.updatedAt = new Date().toISOString();
+        
+        servers[serverIndex] = server;
+        db.data.servers = servers;
+        await db.write();
+        
+        res.json({ message: 'Server started successfully', server });
+    } catch (error) {
+        console.error('Error starting server:', error);
+        res.status(500).json({ error: 'Error starting server' });
+    }
+});
+
+app.post('/api/server/:serverId/stop', requireAuth, async (req, res) => {
+    try {
+        const { serverId } = req.params;
+        const servers = db.data.servers || [];
+        const serverIndex = servers.findIndex(s => s.id === serverId);
+        
+        if (serverIndex === -1) {
+            return res.status(404).json({ error: 'Server not found' });
+        }
+        
+        const server = servers[serverIndex];
+        // Check if user has access to this server
+        if (!server.users || !server.users.includes(req.session.username)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // Update server status
+        server.status = 'stopped';
+        server.updatedAt = new Date().toISOString();
+        
+        servers[serverIndex] = server;
+        db.data.servers = servers;
+        await db.write();
+        
+        res.json({ message: 'Server stopped successfully', server });
+    } catch (error) {
+        console.error('Error stopping server:', error);
+        res.status(500).json({ error: 'Error stopping server' });
+    }
+});
+
+// Delete server endpoint
+app.delete('/api/server/:serverId', requireAuth, async (req, res) => {
+    try {
+        const { serverId } = req.params;
+        const servers = db.data.servers || [];
+        const serverIndex = servers.findIndex(s => s.id === serverId);
+        
+        if (serverIndex === -1) {
+            return res.status(404).json({ error: 'Server not found' });
+        }
+        
+        const server = servers[serverIndex];
+        // Check if user has access to this server
+        if (!server.users || !server.users.includes(req.session.username)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // Remove server from array
+        servers.splice(serverIndex, 1);
+        db.data.servers = servers;
+        await db.write();
+        
+        res.json({ message: 'Server deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting server:', error);
+        res.status(500).json({ error: 'Error deleting server' });
     }
 });
 

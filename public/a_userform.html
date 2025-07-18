@@ -307,7 +307,7 @@
         let isEditMode = false;
         let currentUsername = null;
 
-        // Check authentication on page load
+        // Check authentication on page load (non-blocking)
         async function checkAuth() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/users`, {
@@ -315,13 +315,12 @@
                 });
                 
                 if (response.status === 401) {
-                    window.location.href = '/login.html';
+                    // Not authenticated, but don't redirect
                     return false;
                 }
                 return true;
             } catch (error) {
                 console.error('Auth check failed:', error);
-                window.location.href = '/login.html';
                 return false;
             }
         }
@@ -561,10 +560,8 @@
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', async () => {
-            const isAuthenticated = await checkAuth();
-            if (isAuthenticated) {
-                await initializeForm();
-            }
+            // Initialize form without blocking on authentication
+            await initializeForm();
         });
     </script>
 </body>

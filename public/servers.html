@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntiHost - My Servers</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>IntiHost</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="dashboard.html" class="menu-item">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="servers.html" class="menu-item active">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="settings.html" class="menu-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="#" class="menu-item" onclick="logout(); return false;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1>My Servers</h1>
+                <div class="header-actions">
+                    <button class="button button-primary" onclick="refreshContainers()">
+                        <i class="fas fa-sync"></i>
+                        Refresh
+                    </button>
+                    <a href="request-server.html" class="button button-primary">
+                        <i class="fas fa-plus"></i>
+                        Request Server
+                    </a>
+                </div>
+            </div>
+
+            <!-- Docker Containers Section -->
+            <div class="containers-section">
+                <div class="containers-grid" id="containersGrid">
+                    <!-- Containers will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Server configuration
+        const serverUrl = 'http://localhost:3001';
+
+        async function loadContainers() {
+            try {
+                const response = await fetch(`${serverUrl}/api/user/servers`, {
+                    credentials: 'include'
+                });
+                if (!response.ok) throw new Error('Failed to fetch containers');
+                
+                const containers = await response.json();
+                const grid = document.getElementById('containersGrid');
+                
+                if (containers.length === 0) {
+                    grid.innerHTML = `
+                        <div class="no-servers">
+                            <i class="fas fa-server"></i>
+                            <h3>No Servers Found</h3>
+                            <p>You don't have access to any servers yet. Request a server to get started.</p>
+                            <a href="request-server.html" class="button button-primary">Request Server</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                grid.innerHTML = containers.map(container => `
+                    <div class="container-card ${getStatusClass(container.status)}" onclick="navigateToServerDetails('${container.name}')">
+                        <div class="container-header">
+                            <div class="server-info">
+                                <h3>${container.name}</h3>
+                                <span class="server-type">
+                                    ${getServerType(container.name)}
+                                </span>
+                            </div>
+                            <span class="status-badge">${getSimpleStatus(container.status)}</span>
+                        </div>
+                        <div class="container-details">
+                            <p><strong>ID:</strong> ${container.id.substring(0, 12)}</p>
+                            <p><strong>Ports:</strong> ${container.ports || 'None'}</p>
+                            <p><strong>Status:</strong> ${container.status}</p>
+                            <p><strong>Created by:</strong> ${container.createdBy || 'Unknown'}</p>
+                        </div>
+                        <div class="container-actions" onclick="event.stopPropagation()">
+                            <button onclick="handleContainer('${container.name}', 'start')" 
+                                    class="button button-success">
+                                <i class="fas fa-play"></i>
+                                Start
+                            </button>
+                            <button onclick="handleContainer('${container.name}', 'stop')" 
+                                    class="button button-warning">
+                                <i class="fas fa-stop"></i>
+                                Stop
+                            </button>
+                            <button onclick="handleContainer('${container.name}', 'restart')" 
+                                    class="button button-primary">
+                                <i class="fas fa-sync"></i>
+                                Restart
+                            </button>
+                            <button onclick="copyServerIP('${container.name}', '${container.ports}')" 
+                                    class="button button-secondary">
+                                <i class="fas fa-copy"></i>
+                                Copy IP
+                            </button>
+                            <a href="serverdetails.html?name=${container.name}" 
+                               class="button button-info">
+                                <i class="fas fa-terminal"></i>
+                                Manage
+                            </a>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('containersGrid').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Error Loading Servers</h3>
+                        <p>${error.message}</p>
+                        <button onclick="refreshContainers()" class="button button-primary">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        function getStatusClass(status) {
+            if (status.includes('Up')) return 'running';
+            if (status.includes('Exited')) return 'stopped';
+            return 'other';
+        }
+
+        function getSimpleStatus(status) {
+            if (status.includes('Up')) return 'Running';
+            if (status.includes('Exited')) return 'Stopped';
+            return 'Unknown';
+        }
+
+        function getServerType(name) {
+            if (name.toLowerCase().includes('minecraft')) {
+                return '<i class="fas fa-cube"></i> Minecraft';
+            } else if (name.toLowerCase().includes('web')) {
+                return '<i class="fas fa-globe"></i> Web Server';
+            } else if (name.toLowerCase().includes('db')) {
+                return '<i class="fas fa-database"></i> Database';
+            }
+            return '<i class="fas fa-server"></i> Other';
+        }
+
+        async function handleContainer(containerName, action) {
+            try {
+                const response = await fetch(`${serverUrl}/api/docker/containers/${containerName}/${action}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    showToast(`Server ${action}ed successfully`, 'success');
+                    loadContainers(); // Refresh the list
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || `Failed to ${action} server`, 'error');
+                }
+            } catch (error) {
+                console.error(`Error ${action}ing container:`, error);
+                showToast(`Failed to ${action} server`, 'error');
+            }
+        }
+
+        function copyServerIP(containerName, ports) {
+            const ip = `localhost:${ports.split('->')[0]}`;
+            navigator.clipboard.writeText(ip).then(() => {
+                showToast('Server IP copied to clipboard', 'success');
+            }).catch(() => {
+                showToast('Failed to copy IP', 'error');
+            });
+        }
+
+        function navigateToServerDetails(containerName) {
+            window.location.href = `serverdetails.html?name=${containerName}`;
+        }
+
+        function refreshContainers() {
+            loadContainers();
+            showToast('Servers refreshed', 'success');
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                const response = await fetch('http://localhost:3001/api/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    window.location.href = 'login.html';
+                } else {
+                    // Even if logout fails, redirect to login
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Redirect to login even if there's an error
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Toast notification function
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // Load containers when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadContainers();
+        });
+    </script>
+</body>
+</html> 

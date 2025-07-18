@@ -7,10 +7,55 @@
       "isAdmin": true
     },
     {
-      "username": "Dizze_kisse",
-      "email": "froxxzo.studio.gaming@gmail.com",
-      "password": "intipintypoo",
-      "isAdmin": false
+      "username": "Test",
+      "email": "tester@example.com",
+      "password": "Test",
+      "isAdmin": false,
+      "createdAt": "2025-07-18T11:47:55.424Z"
     }
-  ]
+  ],
+  "serverRequests": [
+    {
+      "id": "1752842158297",
+      "serverName": "TestForRequesting",
+      "serverVersion": "1.21.8",
+      "serverType": "minecraft",
+      "description": "",
+      "additionalUsers": [],
+      "requestedBy": "Test",
+      "status": "rejected",
+      "createdAt": "2025-07-18T12:35:58.297Z",
+      "updatedAt": "2025-07-18T13:06:50.458Z",
+      "approvedBy": "IntiHost123",
+      "rejectedBy": "IntiHost123",
+      "rejectionReason": ""
+    },
+    {
+      "id": "1752842538110",
+      "serverName": "TestForRequesting",
+      "serverVersion": "1.21.8",
+      "serverType": "minecraft",
+      "description": "",
+      "additionalUsers": [],
+      "requestedBy": "Test",
+      "status": "rejected",
+      "createdAt": "2025-07-18T12:42:18.110Z",
+      "updatedAt": "2025-07-18T13:04:03.624Z",
+      "rejectedBy": "IntiHost123",
+      "rejectionReason": ""
+    },
+    {
+      "id": "1752845422539",
+      "serverName": "TestForRequesting1",
+      "serverVersion": "1.21.8",
+      "serverType": "minecraft",
+      "description": "",
+      "additionalUsers": [],
+      "requestedBy": "Test",
+      "status": "pending",
+      "createdAt": "2025-07-18T13:30:22.539Z",
+      "updatedAt": "2025-07-18T13:30:22.539Z"
+    }
+  ],
+  "servers": []
 }

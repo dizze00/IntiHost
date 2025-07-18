@@ -36,4 +36,41 @@
 
 #status.offline {
     color: #e74c3c;
+}
+
+.console-input:disabled {
+    background-color: #2a2a2a;
+    color: #666;
+    cursor: not-allowed;
+    caret-color: transparent;
+    pointer-events: none;
+}
+
+.status-badge.offline {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.stopping {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
 } 

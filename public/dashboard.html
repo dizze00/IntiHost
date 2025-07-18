@@ -8,26 +8,34 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="sidebar">
-        <div class="sidebar-header">
-            <h2><i class="fas fa-server"></i> IntiHost</h2>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>IntiHost</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="dashboard.html" class="menu-item active">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="servers.html" class="menu-item">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="settings.html" class="menu-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="#" class="menu-item" onclick="logout(); return false;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
         </div>
-        <div class="sidebar-menu">
-            <a href="dashboard.html" class="menu-item active">
-                <i class="fas fa-home"></i>
-                <span>Dashboard</span>
-            </a>
-            <a href="settings.html" class="menu-item">
-                <i class="fas fa-cog"></i>
-                <span>Settings</span>
-            </a>
-            <a href="login.html" class="menu-item">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Logout</span>
-            </a>
-        </div>
-    </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
 
     <!-- Main Content -->
     <div class="main-content">
@@ -175,10 +183,13 @@
     </div>
 
     <script>
+        // API configuration
+        const API_BASE_URL = 'http://localhost:3001';
+        
         // Load user profile
         async function loadUserProfile() {
             try {
-                const response = await fetch('/api/user/profile', {
+                const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
                     credentials: 'include'
                 });
                 if (response.ok) {
@@ -186,19 +197,21 @@
                     document.getElementById('username').textContent = user.username;
                     document.getElementById('user-email').textContent = user.email;
                 } else {
-                    // If not logged in, redirect to login
-                    window.location.href = 'login.html';
+                    // If not logged in, show a message but don't redirect
+                    document.getElementById('username').textContent = 'Not logged in';
+                    document.getElementById('user-email').textContent = 'Please log in to view your profile';
                 }
             } catch (error) {
                 console.error('Error loading profile:', error);
-                window.location.href = 'login.html';
+                document.getElementById('username').textContent = 'Error loading profile';
+                document.getElementById('user-email').textContent = 'Please try again later';
             }
         }
 
         // Load user servers
         async function loadUserServers() {
             try {
-                const response = await fetch('/api/user/servers', {
+                const response = await fetch(`${API_BASE_URL}/api/user/servers`, {
                     credentials: 'include'
                 });
                 
@@ -288,7 +301,7 @@
         // Control server (start/stop)
         async function controlServer(serverId, action) {
             try {
-                const response = await fetch(`/api/server/${serverId}/${action}`, {
+                const response = await fetch(`${API_BASE_URL}/api/server/${serverId}/${action}`, {
                     method: 'POST',
                     credentials: 'include'
                 });
@@ -313,7 +326,7 @@
             }
 
             try {
-                const response = await fetch(`/api/server/${serverId}`, {
+                const response = await fetch(`${API_BASE_URL}/api/server/${serverId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
@@ -370,11 +383,58 @@
             }, 3000);
         }
 
-        // Load data when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            loadUserProfile();
-            loadUserServers();
+        // Logout function
+        async function logout() {
+            try {
+                const response = await fetch('http://localhost:3001/api/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    window.location.href = 'login.html';
+                } else {
+                    // Even if logout fails, redirect to login
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Redirect to login even if there's an error
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Check authentication and load data when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isAuthenticated = await checkAuth();
+            if (isAuthenticated) {
+                loadUserProfile();
+                loadUserServers();
+            }
         });
+
+        // Check authentication
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/session`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    console.log('Not authenticated, redirecting to login');
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = 'login.html';
+                return false;
+            }
+        }
     </script>
+        </div>
+    </div>
 </body>
 </html> 
